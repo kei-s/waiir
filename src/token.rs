@@ -15,10 +15,10 @@ pub enum TokenType {
     Comma, // ,
     Semicolon, // ;
 
-    Lparen, // (
-    Rparen, // )
-    Lbrace, // {
-    Rbrace, // }
+    LParen, // (
+    RParen, // )
+    LBrace, // {
+    RBrace, // }
 
     // キーワード
     Function,
@@ -30,3 +30,10 @@ pub struct Token {
     pub literal: String,
 }
 
+pub fn lookup_ident(literal: &str) -> TokenType {
+    match literal {
+        "fn" => TokenType::Function,
+        "let" => TokenType::Let,
+        _ => TokenType::Ident
+    }
+}
