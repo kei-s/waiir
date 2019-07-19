@@ -1,7 +1,6 @@
-use super::token;
-use super::token::{Token,TokenType};
+use super::token::{Token,TokenType,lookup_ident};
 
-struct Lexer<'a> {
+pub struct Lexer<'a> {
     input: &'a String,
     char_indices: std::iter::Peekable<std::str::CharIndices<'a>>,
     ch: char,
@@ -10,13 +9,13 @@ struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    fn new(input: &String) -> Lexer {
+    pub fn new(input: &String) -> Lexer {
         let mut l = Lexer{input, char_indices: input.char_indices().peekable(), ch: '_', pos: 0, eof: false};
         l.read_char();
         l
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         let tok = if self.eof {
@@ -88,7 +87,7 @@ impl<'a> Lexer<'a> {
             };
         }
         let literal = &self.input[start..self.pos];
-        Token { t: token::lookup_ident(literal), literal: literal.to_string() }
+        Token { t: lookup_ident(literal), literal: literal.to_string() }
     }
 
     fn read_number(&mut self) -> Token {

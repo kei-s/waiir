@@ -1,2 +1,3 @@
 pub mod token;
-mod lexer;
+pub mod repl;
+pub mod lexer;
