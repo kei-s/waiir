@@ -61,7 +61,6 @@ impl<'a> Lexer<'a> {
             }
         };
 
-        println!("{}", self.ch);
         self.read_char();
         tok
     }
