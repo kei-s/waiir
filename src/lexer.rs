@@ -23,12 +23,36 @@ impl<'a> Lexer<'a> {
             Token { t: TokenType::Eof, literal: String::from("") }
         } else {
             match self.ch {
-                '=' => Token { t: TokenType::Assign, literal: self.ch.to_string() },
+                '=' => {
+                    if self.peek_char() == '=' {
+                        let ch = self.ch;
+                        self.read_char();
+                        let literal: String = vec![ch, self.ch].into_iter().collect();
+                        Token { t: TokenType::Eq, literal }
+                    } else {
+                        Token { t: TokenType::Assign, literal: self.ch.to_string() }
+                    }
+                },
+                '+' => Token { t: TokenType::Plus, literal: self.ch.to_string() },
+                '-' => Token { t: TokenType::Minus, literal: self.ch.to_string() },
+                '!' => {
+                    if self.peek_char() == '=' {
+                        let ch = self.ch;
+                        self.read_char();
+                        let literal: String = vec![ch, self.ch].into_iter().collect();
+                        Token { t: TokenType::NotEq, literal }
+                    } else {
+                        Token { t: TokenType::Bang, literal: self.ch.to_string() }
+                    }
+                }
+                '*' => Token { t: TokenType::Asterisk, literal: self.ch.to_string() },
+                '/' => Token { t: TokenType::Slash, literal: self.ch.to_string() },
+                '<' => Token { t: TokenType::Lt, literal: self.ch.to_string() },
+                '>' => Token { t: TokenType::Gt, literal: self.ch.to_string() },
+                ',' => Token { t: TokenType::Comma, literal: self.ch.to_string() },
                 ';' => Token { t: TokenType::Semicolon, literal: self.ch.to_string() },
                 '(' => Token { t: TokenType::LParen, literal: self.ch.to_string() },
                 ')' => Token { t: TokenType::RParen, literal: self.ch.to_string() },
-                ',' => Token { t: TokenType::Comma, literal: self.ch.to_string() },
-                '+' => Token { t: TokenType::Plus, literal: self.ch.to_string() },
                 '{' => Token { t: TokenType::LBrace, literal: self.ch.to_string() },
                 '}' => Token { t: TokenType::RBrace, literal: self.ch.to_string() },
                 'a'..='z' | 'A'..='Z' | '_' => return self.read_identifier(),
@@ -37,6 +61,7 @@ impl<'a> Lexer<'a> {
             }
         };
 
+        println!("{}", self.ch);
         self.read_char();
         tok
     }
@@ -45,6 +70,13 @@ impl<'a> Lexer<'a> {
         match self.char_indices.next() {
             Some((pos, ch)) => { self.pos = pos; self.ch = ch; },
             None => self.eof = true
+        }
+    }
+
+    fn peek_char(&mut self) -> char {
+        match self.char_indices.peek() {
+            Some((_, ch)) => *ch,
+            None => { self.eof = true; '_' }
         }
     }
 
@@ -97,6 +129,17 @@ let add = fn(x, y) {
 };
 
 let result = add(five, ten);
+!-/*5;
+5 < 10 > 5;
+
+if (5 < 10) {
+    return true;
+} else {
+    return false;
+}
+
+10 == 10;
+10 != 9;
 "#.to_string();
 
         struct Expected<'a> {
@@ -140,7 +183,44 @@ let result = add(five, ten);
             Expected { t: TokenType::Comma, literal: "," },
             Expected { t: TokenType::Ident, literal: "ten" },
             Expected { t: TokenType::RParen, literal: ")" },
-            Expected { t: TokenType::Semicolon, literal: ";" }
+            Expected { t: TokenType::Semicolon, literal: ";" },
+            Expected { t: TokenType::Bang, literal: "!" },
+            Expected { t: TokenType::Minus, literal: "-" },
+            Expected { t: TokenType::Slash, literal: "/" },
+            Expected { t: TokenType::Asterisk, literal: "*" },
+            Expected { t: TokenType::Int, literal: "5" },
+            Expected { t: TokenType::Semicolon, literal: ";" },
+            Expected { t: TokenType::Int, literal: "5" },
+            Expected { t: TokenType::Lt, literal: "<" },
+            Expected { t: TokenType::Int, literal: "10" },
+            Expected { t: TokenType::Gt, literal: ">" },
+            Expected { t: TokenType::Int, literal: "5" },
+            Expected { t: TokenType::Semicolon, literal: ";" },
+            Expected { t: TokenType::If, literal: "if" },
+            Expected { t: TokenType::LParen, literal: "(" },
+            Expected { t: TokenType::Int, literal: "5" },
+            Expected { t: TokenType::Lt, literal: "<" },
+            Expected { t: TokenType::Int, literal: "10" },
+            Expected { t: TokenType::RParen, literal: ")" },
+            Expected { t: TokenType::LBrace, literal: "{" },
+            Expected { t: TokenType::Return, literal: "return" },
+            Expected { t: TokenType::True, literal: "true" },
+            Expected { t: TokenType::Semicolon, literal: ";" },
+            Expected { t: TokenType::RBrace, literal: "}"},
+            Expected { t: TokenType::Else, literal: "else" },
+            Expected { t: TokenType::LBrace, literal: "{" },
+            Expected { t: TokenType::Return, literal: "return" },
+            Expected { t: TokenType::False, literal: "false" },
+            Expected { t: TokenType::Semicolon, literal: ";" },
+            Expected { t: TokenType::RBrace, literal: "}"},
+            Expected { t: TokenType::Int, literal: "10"},
+            Expected { t: TokenType::Eq, literal: "=="},
+            Expected { t: TokenType::Int, literal: "10"},
+            Expected { t: TokenType::Semicolon, literal: ";"},
+            Expected { t: TokenType::Int, literal: "10"},
+            Expected { t: TokenType::NotEq, literal: "!="},
+            Expected { t: TokenType::Int, literal: "9"},
+            Expected { t: TokenType::Semicolon, literal: ";"},
         ];
 
         let mut l = Lexer::new(&input);

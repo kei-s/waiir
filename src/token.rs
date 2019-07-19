@@ -10,6 +10,15 @@ pub enum TokenType {
     // 演算子
     Assign, // =
     Plus, // +
+    Minus, // -
+    Bang, // !
+    Asterisk, // *
+    Slash, // /
+
+    Lt, // <
+    Gt, // >
+    Eq, // ==
+    NotEq, // !=
 
     // デリミタ
     Comma, // ,
@@ -22,7 +31,12 @@ pub enum TokenType {
 
     // キーワード
     Function,
-    Let
+    Let,
+    True,
+    False,
+    If,
+    Else,
+    Return
 }
 
 pub struct Token {
@@ -34,6 +48,11 @@ pub fn lookup_ident(literal: &str) -> TokenType {
     match literal {
         "fn" => TokenType::Function,
         "let" => TokenType::Let,
+        "true" => TokenType::True,
+        "false" => TokenType::False,
+        "if" => TokenType::If,
+        "else" => TokenType::Else,
+        "return" => TokenType::Return,
         _ => TokenType::Ident
     }
 }
