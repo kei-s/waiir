@@ -68,8 +68,8 @@ impl<'a> Lexer<'a> {
 
     fn read_char(&mut self) {
         match self.char_indices.next() {
-            Some((pos, ch)) => { self.pos = pos; self.ch = ch; },
-            None => self.eof = true
+            Some((pos, ch)) => { self.pos = pos; self.ch = ch; }
+            None => { self.eof = true; self.ch = '_' }
         }
     }
 
@@ -221,6 +221,7 @@ if (5 < 10) {
             Expected { t: TokenType::NotEq, literal: "!="},
             Expected { t: TokenType::Int, literal: "9"},
             Expected { t: TokenType::Semicolon, literal: ";"},
+            Expected { t: TokenType::Eof, literal: ""},
         ];
 
         let mut l = Lexer::new(&input);
