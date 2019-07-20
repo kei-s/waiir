@@ -10,17 +10,24 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &String) -> Lexer {
-        let mut l = Lexer{input, char_indices: input.char_indices().peekable(), ch: '_', pos: 0, eof: false};
+        let mut l = Lexer {
+            input,
+            char_indices: input.char_indices().peekable(),
+            ch: '_',
+            pos: 0,
+            eof: false,
+        };
         l.read_char();
         l
     }
 
-    pub fn next_token(&mut self) -> Token {
+    fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
 
         let tok = if self.eof {
-            Token { t: TokenType::Eof, literal: String::from("") }
+            None
         } else {
+            Some(
             match self.ch {
                 '=' => {
                     if self.peek_char() == '=' {
@@ -54,10 +61,11 @@ impl<'a> Lexer<'a> {
                 ')' => Token { t: TokenType::RParen, literal: self.ch.to_string() },
                 '{' => Token { t: TokenType::LBrace, literal: self.ch.to_string() },
                 '}' => Token { t: TokenType::RBrace, literal: self.ch.to_string() },
-                'a'..='z' | 'A'..='Z' | '_' => return self.read_identifier(),
-                '0'..='9' => return self.read_number(),
+                'a'..='z' | 'A'..='Z' | '_' => return Some(self.read_identifier()),
+                '0'..='9' => return Some(self.read_number()),
                 _ => Token { t:  TokenType::Illegal, literal: self.ch.to_string() }
             }
+            )
         };
 
         self.read_char();
@@ -112,10 +120,16 @@ impl<'a> Lexer<'a> {
     }
 }
 
+impl Iterator for Lexer<'_> {
+    type Item = Token;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::TokenType;
-    use super::Lexer;
+    use super::{TokenType, Lexer};
 
     #[test]
     fn test_next_token() {
@@ -219,16 +233,16 @@ if (5 < 10) {
             Expected { t: TokenType::NotEq, literal: "!="},
             Expected { t: TokenType::Int, literal: "9"},
             Expected { t: TokenType::Semicolon, literal: ";"},
-            Expected { t: TokenType::Eof, literal: ""},
         ];
 
         let mut l = Lexer::new(&input);
 
         for expected in &tests {
-            let tok = l.next_token();
+            let tok = l.next().unwrap();
             assert_eq!(tok.t, expected.t);
             assert_eq!(tok.literal, expected.literal);
         }
+        assert_eq!(l.next(), None);
     }
 }
 

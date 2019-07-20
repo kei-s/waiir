@@ -13,7 +13,7 @@ pub fn start() {
         let mut l = lexer::Lexer::new(&input);
 
         loop {
-            let token = l.next_token();
+            let token = l.next().unwrap();
             match token.t {
                 TokenType::Eof => break,
                 _ => { println!("{:?}", token); }
