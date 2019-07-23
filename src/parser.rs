@@ -32,7 +32,7 @@ impl Parser<'_> {
     fn parse_program(&mut self) -> Program {
         let mut statements: Vec<Statement> = vec![];
 
-        while let Some(cur_token) = self.l.next() {
+        while let Some(cur_token) = self.next_token() {
             match self.parse_statement(cur_token) {
                 Ok(stmt) => { statements.push(stmt) }
                 Err(error) => { self.errors.push(error) }
@@ -56,7 +56,7 @@ impl Parser<'_> {
 
         self.expect_peek(TokenType::Assign)?;
         // TODO: セミコロンまで読み飛ばしている
-        while let Some(next) = self.l.next() {
+        while let Some(next) = self.next_token() {
             if next.t == TokenType::Semicolon { break; }
         }
         let identifier = Identifier {value: ident_token.literal};
@@ -65,21 +65,24 @@ impl Parser<'_> {
     }
 
     fn parse_return_statement(&mut self) -> Result<ReturnStatement, ParseError> {
-        self.l.next();
+        self.next_token();
 
         // TODO: セミコロンまで読み飛ばしている
-        while let Some(next) = self.l.next() {
+        while let Some(next) = self.next_token() {
             if next.t == TokenType::Semicolon { break; }
         }
 
         Ok(ReturnStatement{})
     }
 
+    fn next_token(&mut self) -> Option<Token> { self.l.next() }
+    fn peek_token(&mut self) -> Option<&Token> { self.l.peek() }
+
     fn expect_peek(&mut self, t: TokenType) -> Result<Token, ParseError> {
-        match self.l.peek() {
+        match self.peek_token() {
             Some(peek) => {
                 if peek.t == t {
-                     self.l.next().ok_or(ParseError {message: String::from("Unexpected EOF") })
+                     self.next_token().ok_or(ParseError {message: String::from("Unexpected EOF") })
                 } else {
                     Err(ParseError {
                         message: format!("expected next token to be {:?}, got {:?} instead", t, peek.t)
