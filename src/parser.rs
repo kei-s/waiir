@@ -3,6 +3,10 @@ use super::token::{Token, TokenType};
 use super::lexer::Lexer;
 use super::ast::*;
 
+enum Precedence {
+    Lowest
+}
+
 #[derive(Debug)]
 struct ParseError {
     message: String
@@ -46,7 +50,7 @@ impl Parser<'_> {
             match cur_token.t {
                 TokenType::Let => Statement::LetStatement(self.parse_let_statement()?),
                 TokenType::Return => Statement::ReturnStatement(self.parse_return_statement()?),
-                _ => return Err(ParseError{message: String::from("not implemented")})
+                _ => Statement::ExpressionStatement(self.parse_expression_statement(cur_token)?)
             }
         )
     }
@@ -73,6 +77,29 @@ impl Parser<'_> {
         }
 
         Ok(ReturnStatement{})
+    }
+
+    fn parse_expression_statement(&mut self, cur_token: Token) -> Result<ExpressionStatement, ParseError> {
+        let expression = self.parse_expression(cur_token, Precedence::Lowest)?;
+
+        if let Some(token) = self.peek_token() {
+            if token.t == TokenType::Semicolon { self.next_token(); }
+        }
+
+        Ok(ExpressionStatement{expression})
+    }
+
+    fn parse_expression(&mut self, cur_token: Token, precedence: Precedence) -> Result<Expression, ParseError> {
+        Ok(
+            match cur_token.t {
+                TokenType::Ident => Expression::Identifier(self.parse_identifier(cur_token)),
+                _ => return Err(ParseError {message: String::from("not implemented") })
+            }
+        )
+    }
+
+    fn parse_identifier(&mut self, cur_token: Token) -> Identifier {
+        Identifier { value: cur_token.literal }
     }
 
     fn next_token(&mut self) -> Option<Token> { self.l.next() }
@@ -140,6 +167,28 @@ return 993322;
         let program = p. parse_program();
         check_parse_errors(p);
         assert_eq!(program.statements.len(), 3);
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+
+        let program = p. parse_program();
+        check_parse_errors(p);
+        assert_eq!(program.statements.len(), 1);
+
+        if let Statement::ExpressionStatement(exp_stmt) = &program.statements[0] {
+            if let Expression::Identifier(ident) = &exp_stmt.expression {
+                assert_eq!(ident.value, "foobar");
+            } else {
+                assert!(false, "program.statements[0] is not ast::Identifier")
+            }
+        } else {
+            assert!(false, "program.statements[0] is not ast::ExpressionStatement")
+        }
     }
 
     fn check_parse_errors(p: Parser) {

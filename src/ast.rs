@@ -88,12 +88,12 @@ impl fmt::Display for ReturnStatement {
 
 #[derive(Debug,PartialEq)]
 pub struct ExpressionStatement {
-    value: Expression
+    pub expression: Expression
 }
 
 impl fmt::Display for ExpressionStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value)
+        write!(f, "{}", self.expression)
     }
 }
 
