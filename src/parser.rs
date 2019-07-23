@@ -59,9 +59,9 @@ impl Parser<'_> {
         while let Some(next) = self.next_token() {
             if next.t == TokenType::Semicolon { break; }
         }
-        let identifier = Identifier {value: ident_token.literal};
+        let name = Identifier {value: ident_token.literal};
 
-        Ok(LetStatement{identifier})
+        Ok(LetStatement{name})
     }
 
     fn parse_return_statement(&mut self) -> Result<ReturnStatement, ParseError> {
@@ -152,6 +152,6 @@ return 993322;
     }
 
     fn assert_let_statement(statement: &Statement, expected: &str) {
-        assert_eq!(statement, &Statement::LetStatement(LetStatement{identifier: Identifier{value: expected.to_string()}}));
+        assert_eq!(statement, &Statement::LetStatement(LetStatement{name: Identifier{value: expected.to_string()}}));
     }
 }
