@@ -11,24 +11,57 @@ impl fmt::Display for Program {
     }
 }
 
-// Statement
+/*
+Enum generation macro
+
+This macro generates below code.
+
+```
 #[derive(Debug,PartialEq)]
 pub enum Statement {
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
-    ExpressionStatement(ExpressionStatement),
+    ...
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Statement::LetStatement(x) => write!(f, "{}", x),
-            _ => panic!()
-            // Statement::ReturnStatement(x) => write!(f, "{}", x),
-            // Statement::ExpressionStatement(x) => write!(f, "{}", x),
+            Statement::ReturnStatement(x) => write!(f, "{}", x),
+            ...
         }
     }
 }
+```
+*/
+macro_rules! gen_enum {
+    ($name:ident, $($var:ident($ty:ty)),+) => {
+        #[derive(Debug,PartialEq)]
+        pub enum $name {
+            $(
+                $var($ty),
+            )*
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    $(
+                        $name::$var(x) => write!(f, "{}", x),
+                    )+
+                }
+            }
+        }
+    };
+}
+
+// Statement
+gen_enum!(Statement,
+    LetStatement(LetStatement),
+    ReturnStatement(ReturnStatement),
+    ExpressionStatement(ExpressionStatement)
+);
 
 #[derive(Debug,PartialEq)]
 pub struct LetStatement {
@@ -38,7 +71,7 @@ pub struct LetStatement {
 
 impl fmt::Display for LetStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "let {} = ;", self.name,)
+        write!(f, "let {} = ;", self.name)
     }
 }
 
@@ -47,24 +80,27 @@ pub struct ReturnStatement {
     // value: Expression
 }
 
+impl fmt::Display for ReturnStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "return {};", "DUMMY")
+    }
+}
+
 #[derive(Debug,PartialEq)]
 pub struct ExpressionStatement {
     value: Expression
 }
 
-// Expression
-#[derive(Debug,PartialEq)]
-pub enum Expression {
-    Identifier(Identifier)
-}
-
-impl fmt::Display for Expression {
+impl fmt::Display for ExpressionStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Expression::Identifier(x) => write!(f, "{}", x),
-        }
+        write!(f, "{}", self.value)
     }
 }
+
+// Expression
+gen_enum!(Expression,
+    Identifier(Identifier)
+);
 
 #[derive(Debug,PartialEq)]
 pub struct Identifier {
