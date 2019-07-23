@@ -99,7 +99,9 @@ impl fmt::Display for ExpressionStatement {
 
 // Expression
 gen_enum!(Expression,
-    Identifier(Identifier)
+    Identifier(Identifier),
+    IntegerLiteral(IntegerLiteral),
+    PrefixExpression(PrefixExpression)
 );
 
 #[derive(Debug,PartialEq)]
@@ -109,7 +111,30 @@ pub struct Identifier {
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value,)
+        write!(f, "{}", self.value)
+    }
+}
+
+#[derive(Debug,PartialEq)]
+pub struct IntegerLiteral {
+    pub value: isize
+}
+
+impl fmt::Display for IntegerLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+#[derive(Debug,PartialEq)]
+pub struct PrefixExpression {
+    pub operator: String,
+    pub right: Box<Expression>
+}
+
+impl fmt::Display for PrefixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}{})", self.operator, self.right)
     }
 }
 

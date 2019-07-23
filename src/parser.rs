@@ -4,7 +4,13 @@ use super::lexer::Lexer;
 use super::ast::*;
 
 enum Precedence {
-    Lowest
+    Lowest,
+    Equals, // ==
+    LessGreater, // > OR <
+    Sum, // +
+    Product, // *
+    Prefix, // -X OR !X
+    Call // myFunction(x)
 }
 
 #[derive(Debug)]
@@ -36,7 +42,7 @@ impl Parser<'_> {
     fn parse_program(&mut self) -> Program {
         let mut statements: Vec<Statement> = vec![];
 
-        while let Some(cur_token) = self.next_token() {
+        while let Ok(cur_token) = self.next_token() {
             match self.parse_statement(cur_token) {
                 Ok(stmt) => { statements.push(stmt) }
                 Err(error) => { self.errors.push(error) }
@@ -60,7 +66,7 @@ impl Parser<'_> {
 
         self.expect_peek(TokenType::Assign)?;
         // TODO: セミコロンまで読み飛ばしている
-        while let Some(next) = self.next_token() {
+        while let Ok(next) = self.next_token() {
             if next.t == TokenType::Semicolon { break; }
         }
         let name = Identifier {value: ident_token.literal};
@@ -72,7 +78,7 @@ impl Parser<'_> {
         self.next_token();
 
         // TODO: セミコロンまで読み飛ばしている
-        while let Some(next) = self.next_token() {
+        while let Ok(next) = self.next_token() {
             if next.t == TokenType::Semicolon { break; }
         }
 
@@ -93,23 +99,44 @@ impl Parser<'_> {
         Ok(
             match cur_token.t {
                 TokenType::Ident => Expression::Identifier(self.parse_identifier(cur_token)),
+                TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal(cur_token)?),
+                TokenType::Bang => Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?),
+                TokenType::Minus => Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?),
                 _ => return Err(ParseError {message: String::from("not implemented") })
             }
         )
     }
 
-    fn parse_identifier(&mut self, cur_token: Token) -> Identifier {
+    fn parse_identifier(&self, cur_token: Token) -> Identifier {
         Identifier { value: cur_token.literal }
     }
 
-    fn next_token(&mut self) -> Option<Token> { self.l.next() }
+    fn parse_integer_literal(&self, cur_token: Token) -> Result<IntegerLiteral, ParseError> {
+        match cur_token.literal.parse() {
+            Ok(value) => Ok(IntegerLiteral { value }),
+            Err(_) =>
+                Err(ParseError {
+                    message: format!("could not parse {} as integer", cur_token.literal)
+                })
+        }
+    }
+
+    fn parse_prefix_expression(&mut self, cur_token: Token) -> Result<PrefixExpression, ParseError> {
+        let next_token = self.next_token()?;
+        let right = self.parse_expression(next_token, Precedence::Prefix)?;
+        Ok(PrefixExpression { operator: cur_token.literal, right: Box::new(right) })
+    }
+
+    fn next_token(&mut self) -> Result<Token, ParseError> {
+        self.l.next().ok_or(ParseError {message: String::from("Unexpected EOF") })
+    }
     fn peek_token(&mut self) -> Option<&Token> { self.l.peek() }
 
     fn expect_peek(&mut self, t: TokenType) -> Result<Token, ParseError> {
         match self.peek_token() {
             Some(peek) => {
                 if peek.t == t {
-                     self.next_token().ok_or(ParseError {message: String::from("Unexpected EOF") })
+                     self.next_token()
                 } else {
                     Err(ParseError {
                         message: format!("expected next token to be {:?}, got {:?} instead", t, peek.t)
@@ -191,6 +218,62 @@ return 993322;
         }
     }
 
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+
+        let program = p. parse_program();
+        check_parse_errors(p);
+        assert_eq!(program.statements.len(), 1);
+
+        if let Statement::ExpressionStatement(exp_stmt) = &program.statements[0] {
+            if let Expression::IntegerLiteral(literal) = &exp_stmt.expression {
+                assert_eq!(literal.value, 5);
+            } else {
+                assert!(false, "program.statements[0] is not ast::IntegerLiteral")
+            }
+        } else {
+            assert!(false, "program.statements[0] is not ast::ExpressionStatement")
+        }
+    }
+
+    #[test]
+    fn test_parsing_prefix_expression() {
+        struct Test<'a> {
+            input: &'a str,
+            operator: &'a str,
+            integer_value: isize,
+        }
+
+        let prefix_tests = vec![
+            Test{input: "!5;", operator: "!", integer_value: 5},
+            Test{input: "-15;", operator: "-", integer_value: 15},
+        ];
+
+        for tt in prefix_tests {
+            let input = tt.input.to_string();
+            let l = Lexer::new(&input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parse_errors(p);
+
+            assert_eq!(program.statements.len(), 1);
+            if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+                if let Expression::PrefixExpression(exp) = &stmt.expression {
+                    assert_eq!(exp.operator, tt.operator);
+                    assert_integer_literal(&*exp.right, tt.integer_value);
+                } else {
+                    assert!(false, "stmt is not ast::PrefixExpression");
+                }
+            } else {
+                assert!(false, "program.statements[0] is not ast::ExpressionStatement");
+            }
+        }
+    }
+
     fn check_parse_errors(p: Parser) {
         let errors = p.errors;
         let len = errors.len();
@@ -202,5 +285,14 @@ return 993322;
 
     fn assert_let_statement(statement: &Statement, expected: &str) {
         assert_eq!(statement, &Statement::LetStatement(LetStatement{name: Identifier{value: expected.to_string()}}));
+    }
+
+    fn assert_integer_literal(il: &Expression, value: isize) {
+        if let Expression::IntegerLiteral(integ) = il {
+            assert_eq!(integ.value, value);
+            assert_eq!(format!("{}", integ.value), format!("{}", value));
+        } else {
+            assert!(false, "il not ast::IntegerLiteral");
+        }
     }
 }
