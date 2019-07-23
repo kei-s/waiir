@@ -45,6 +45,7 @@ impl Parser<'_> {
         Ok(
             match cur_token.t {
                 TokenType::Let => Statement::LetStatement(self.parse_let_statement()?),
+                TokenType::Return => Statement::ReturnStatement(self.parse_return_statement()?),
                 _ => return Err(ParseError{message: String::from("not implemented")})
             }
         )
@@ -61,6 +62,17 @@ impl Parser<'_> {
         let identifier = Identifier {value: ident_token.literal};
 
         Ok(LetStatement{identifier})
+    }
+
+    fn parse_return_statement(&mut self) -> Result<ReturnStatement, ParseError> {
+        self.l.next();
+
+        // TODO: セミコロンまで読み飛ばしている
+        while let Some(next) = self.l.next() {
+            if next.t == TokenType::Semicolon { break; }
+        }
+
+        Ok(ReturnStatement{})
     }
 
     fn expect_peek(&mut self, t: TokenType) -> Result<Token, ParseError> {
@@ -87,7 +99,7 @@ mod tests {
     #[test]
     fn test_let_statements() {
         let input = r#"
-let x 5;
+let x = 5;
 let y = 10;
 let foobar = 838383;
 "#.to_string();
@@ -109,6 +121,22 @@ let foobar = 838383;
             let stmt = &program.statements[i];
             assert_let_statement(stmt, expected);
         }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = r#"
+return 5;
+return 10;
+return 993322;
+"#.to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+
+        let program = p. parse_program();
+        check_parse_errors(p);
+        assert_eq!(program.statements.len(), 3);
     }
 
     fn check_parse_errors(p: Parser) {

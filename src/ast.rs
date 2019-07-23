@@ -5,12 +5,18 @@ pub struct Program {
 // Statement
 #[derive(Debug,PartialEq)]
 pub enum Statement {
-    LetStatement(LetStatement)
+    LetStatement(LetStatement),
+    ReturnStatement(ReturnStatement),
 }
 
 #[derive(Debug,PartialEq)]
 pub struct LetStatement {
     pub identifier: Identifier,
+    // value: Expression
+}
+
+#[derive(Debug,PartialEq)]
+pub struct ReturnStatement {
     // value: Expression
 }
 
