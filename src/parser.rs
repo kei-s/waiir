@@ -281,27 +281,13 @@ return 993322;
 
     #[test]
     fn test_parsing_prefix_expressions() {
-        struct Test<'a> {
-            input: &'a str,
-            operator: &'a str,
-            integer_value: isize,
-        }
-
-        let prefix_tests = vec![
-            Test {
-                input: "!5;",
-                operator: "!",
-                integer_value: 5,
-            },
-            Test {
-                input: "-15;",
-                operator: "-",
-                integer_value: 15,
-            },
-        ];
+        let prefix_tests = vec![("!5;", "!", 5), ("-15;", "-", 15)];
 
         for tt in prefix_tests {
-            let input = tt.input.to_string();
+            let input = tt.0.to_string();
+            let expected_operator = tt.1;
+            let expected_integer_value = tt.2;
+
             let l = Lexer::new(&input);
             let mut p = Parser::new(l);
             let program = p.parse_program();
@@ -310,8 +296,8 @@ return 993322;
             assert_eq!(program.statements.len(), 1);
             if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
                 if let Expression::PrefixExpression(exp) = &stmt.expression {
-                    assert_eq!(exp.operator, tt.operator);
-                    assert_integer_literal(&*exp.right, tt.integer_value);
+                    assert_eq!(exp.operator, expected_operator);
+                    assert_integer_literal(&*exp.right, expected_integer_value);
                 } else {
                     assert!(false, "stmt is not ast::PrefixExpression");
                 }
@@ -323,6 +309,7 @@ return 993322;
             }
         }
     }
+
     fn check_parse_errors(p: Parser) {
         let errors = p.errors;
         let len = errors.len();

@@ -229,312 +229,88 @@ if (5 < 10) {
 "#
         .to_string();
 
-        struct Expected<'a> {
-            t: TokenType,
-            literal: &'a str,
-        }
-
         let tests = vec![
-            Expected {
-                t: TokenType::Let,
-                literal: "let",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "five",
-            },
-            Expected {
-                t: TokenType::Assign,
-                literal: "=",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "5",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::Let,
-                literal: "let",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "ten",
-            },
-            Expected {
-                t: TokenType::Assign,
-                literal: "=",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "10",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::Let,
-                literal: "let",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "add",
-            },
-            Expected {
-                t: TokenType::Assign,
-                literal: "=",
-            },
-            Expected {
-                t: TokenType::Function,
-                literal: "fn",
-            },
-            Expected {
-                t: TokenType::LParen,
-                literal: "(",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "x",
-            },
-            Expected {
-                t: TokenType::Comma,
-                literal: ",",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "y",
-            },
-            Expected {
-                t: TokenType::RParen,
-                literal: ")",
-            },
-            Expected {
-                t: TokenType::LBrace,
-                literal: "{",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "x",
-            },
-            Expected {
-                t: TokenType::Plus,
-                literal: "+",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "y",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::RBrace,
-                literal: "}",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::Let,
-                literal: "let",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "result",
-            },
-            Expected {
-                t: TokenType::Assign,
-                literal: "=",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "add",
-            },
-            Expected {
-                t: TokenType::LParen,
-                literal: "(",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "five",
-            },
-            Expected {
-                t: TokenType::Comma,
-                literal: ",",
-            },
-            Expected {
-                t: TokenType::Ident,
-                literal: "ten",
-            },
-            Expected {
-                t: TokenType::RParen,
-                literal: ")",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::Bang,
-                literal: "!",
-            },
-            Expected {
-                t: TokenType::Minus,
-                literal: "-",
-            },
-            Expected {
-                t: TokenType::Slash,
-                literal: "/",
-            },
-            Expected {
-                t: TokenType::Asterisk,
-                literal: "*",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "5",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "5",
-            },
-            Expected {
-                t: TokenType::Lt,
-                literal: "<",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "10",
-            },
-            Expected {
-                t: TokenType::Gt,
-                literal: ">",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "5",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::If,
-                literal: "if",
-            },
-            Expected {
-                t: TokenType::LParen,
-                literal: "(",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "5",
-            },
-            Expected {
-                t: TokenType::Lt,
-                literal: "<",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "10",
-            },
-            Expected {
-                t: TokenType::RParen,
-                literal: ")",
-            },
-            Expected {
-                t: TokenType::LBrace,
-                literal: "{",
-            },
-            Expected {
-                t: TokenType::Return,
-                literal: "return",
-            },
-            Expected {
-                t: TokenType::True,
-                literal: "true",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::RBrace,
-                literal: "}",
-            },
-            Expected {
-                t: TokenType::Else,
-                literal: "else",
-            },
-            Expected {
-                t: TokenType::LBrace,
-                literal: "{",
-            },
-            Expected {
-                t: TokenType::Return,
-                literal: "return",
-            },
-            Expected {
-                t: TokenType::False,
-                literal: "false",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::RBrace,
-                literal: "}",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "10",
-            },
-            Expected {
-                t: TokenType::Eq,
-                literal: "==",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "10",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "10",
-            },
-            Expected {
-                t: TokenType::NotEq,
-                literal: "!=",
-            },
-            Expected {
-                t: TokenType::Int,
-                literal: "9",
-            },
-            Expected {
-                t: TokenType::Semicolon,
-                literal: ";",
-            },
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "five"),
+            (TokenType::Assign, "="),
+            (TokenType::Int, "5"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "ten"),
+            (TokenType::Assign, "="),
+            (TokenType::Int, "10"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "add"),
+            (TokenType::Assign, "="),
+            (TokenType::Function, "fn"),
+            (TokenType::LParen, "("),
+            (TokenType::Ident, "x"),
+            (TokenType::Comma, ","),
+            (TokenType::Ident, "y"),
+            (TokenType::RParen, ")"),
+            (TokenType::LBrace, "{"),
+            (TokenType::Ident, "x"),
+            (TokenType::Plus, "+"),
+            (TokenType::Ident, "y"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::RBrace, "}"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Let, "let"),
+            (TokenType::Ident, "result"),
+            (TokenType::Assign, "="),
+            (TokenType::Ident, "add"),
+            (TokenType::LParen, "("),
+            (TokenType::Ident, "five"),
+            (TokenType::Comma, ","),
+            (TokenType::Ident, "ten"),
+            (TokenType::RParen, ")"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Bang, "!"),
+            (TokenType::Minus, "-"),
+            (TokenType::Slash, "/"),
+            (TokenType::Asterisk, "*"),
+            (TokenType::Int, "5"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Int, "5"),
+            (TokenType::Lt, "<"),
+            (TokenType::Int, "10"),
+            (TokenType::Gt, ">"),
+            (TokenType::Int, "5"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::If, "if"),
+            (TokenType::LParen, "("),
+            (TokenType::Int, "5"),
+            (TokenType::Lt, "<"),
+            (TokenType::Int, "10"),
+            (TokenType::RParen, ")"),
+            (TokenType::LBrace, "{"),
+            (TokenType::Return, "return"),
+            (TokenType::True, "true"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::RBrace, "}"),
+            (TokenType::Else, "else"),
+            (TokenType::LBrace, "{"),
+            (TokenType::Return, "return"),
+            (TokenType::False, "false"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::RBrace, "}"),
+            (TokenType::Int, "10"),
+            (TokenType::Eq, "=="),
+            (TokenType::Int, "10"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::Int, "10"),
+            (TokenType::NotEq, "!="),
+            (TokenType::Int, "9"),
+            (TokenType::Semicolon, ";"),
         ];
 
         let mut l = Lexer::new(&input);
 
-        for expected in &tests {
+        for tt in &tests {
             let tok = l.next().unwrap();
-            assert_eq!(tok.t, expected.t);
-            assert_eq!(tok.literal, expected.literal);
+            assert_eq!(tok.t, tt.0);
+            assert_eq!(tok.literal, tt.1);
         }
         assert_eq!(l.next(), None);
     }
