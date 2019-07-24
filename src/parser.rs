@@ -75,7 +75,7 @@ impl Parser<'_> {
     }
 
     fn parse_return_statement(&mut self) -> Result<ReturnStatement, ParseError> {
-        self.next_token();
+        self.next_token()?;
 
         // TODO: セミコロンまで読み飛ばしている
         while let Ok(next) = self.next_token() {
@@ -89,7 +89,7 @@ impl Parser<'_> {
         let expression = self.parse_expression(cur_token, Precedence::Lowest)?;
 
         if let Some(token) = self.peek_token() {
-            if token.t == TokenType::Semicolon { self.next_token(); }
+            if token.t == TokenType::Semicolon { self.next_token()?; }
         }
 
         Ok(ExpressionStatement{expression})
