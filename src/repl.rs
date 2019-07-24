@@ -1,6 +1,6 @@
+use super::lexer;
 use std::io;
 use std::io::prelude::*;
-use super::lexer;
 
 pub fn start() {
     const PROMPT: &str = ">> ";

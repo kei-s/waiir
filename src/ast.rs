@@ -1,7 +1,7 @@
 use std::fmt;
 
 pub struct Program {
-    pub statements: Vec<Statement>
+    pub statements: Vec<Statement>,
 }
 
 impl fmt::Display for Program {
@@ -57,13 +57,14 @@ macro_rules! gen_enum {
 }
 
 // Statement
-gen_enum!(Statement,
+gen_enum!(
+    Statement,
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
     ExpressionStatement(ExpressionStatement)
 );
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct LetStatement {
     pub name: Identifier,
     // value: Expression
@@ -75,7 +76,7 @@ impl fmt::Display for LetStatement {
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ReturnStatement {
     // value: Expression
 }
@@ -86,9 +87,9 @@ impl fmt::Display for ReturnStatement {
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ExpressionStatement {
-    pub expression: Expression
+    pub expression: Expression,
 }
 
 impl fmt::Display for ExpressionStatement {
@@ -98,15 +99,16 @@ impl fmt::Display for ExpressionStatement {
 }
 
 // Expression
-gen_enum!(Expression,
+gen_enum!(
+    Expression,
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
     PrefixExpression(PrefixExpression)
 );
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Identifier {
-    pub value: String
+    pub value: String,
 }
 
 impl fmt::Display for Identifier {
@@ -115,9 +117,9 @@ impl fmt::Display for Identifier {
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct IntegerLiteral {
-    pub value: isize
+    pub value: isize,
 }
 
 impl fmt::Display for IntegerLiteral {
@@ -126,10 +128,10 @@ impl fmt::Display for IntegerLiteral {
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct PrefixExpression {
     pub operator: String,
-    pub right: Box<Expression>
+    pub right: Box<Expression>,
 }
 
 impl fmt::Display for PrefixExpression {
@@ -144,13 +146,12 @@ mod tests {
 
     #[test]
     fn test_string() {
-        let program = Program{
-            statements: vec![
-                Statement::LetStatement(LetStatement {
-                    name: Identifier {
-                    value: "myVar".to_string()
-                }})
-            ]
+        let program = Program {
+            statements: vec![Statement::LetStatement(LetStatement {
+                name: Identifier {
+                    value: "myVar".to_string(),
+                },
+            })],
         };
 
         assert_eq!(format!("{}", program), "let myVar = ;");

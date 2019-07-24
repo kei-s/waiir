@@ -1,21 +1,21 @@
-use std::fmt;
-use super::token::{Token, TokenType};
-use super::lexer::Lexer;
 use super::ast::*;
+use super::lexer::Lexer;
+use super::token::{Token, TokenType};
+use std::fmt;
 
 enum Precedence {
     Lowest,
-    Equals, // ==
+    Equals,      // ==
     LessGreater, // > OR <
-    Sum, // +
-    Product, // *
-    Prefix, // -X OR !X
-    Call // myFunction(x)
+    Sum,         // +
+    Product,     // *
+    Prefix,      // -X OR !X
+    Call,        // myFunction(x)
 }
 
 #[derive(Debug)]
 struct ParseError {
-    message: String
+    message: String,
 }
 
 impl fmt::Display for ParseError {
@@ -28,14 +28,14 @@ impl std::error::Error for ParseError {}
 
 struct Parser<'a> {
     l: std::iter::Peekable<Lexer<'a>>,
-    errors: Vec<ParseError>
+    errors: Vec<ParseError>,
 }
 
 impl Parser<'_> {
     fn new(l: Lexer) -> Parser {
         Parser {
             l: l.peekable(),
-            errors: vec![]
+            errors: vec![],
         }
     }
 
@@ -44,21 +44,19 @@ impl Parser<'_> {
 
         while let Ok(cur_token) = self.next_token() {
             match self.parse_statement(cur_token) {
-                Ok(stmt) => { statements.push(stmt) }
-                Err(error) => { self.errors.push(error) }
+                Ok(stmt) => statements.push(stmt),
+                Err(error) => self.errors.push(error),
             }
         }
         Program { statements }
     }
 
     fn parse_statement(&mut self, cur_token: Token) -> Result<Statement, ParseError> {
-        Ok(
-            match cur_token.t {
-                TokenType::Let => Statement::LetStatement(self.parse_let_statement()?),
-                TokenType::Return => Statement::ReturnStatement(self.parse_return_statement()?),
-                _ => Statement::ExpressionStatement(self.parse_expression_statement(cur_token)?)
-            }
-        )
+        Ok(match cur_token.t {
+            TokenType::Let => Statement::LetStatement(self.parse_let_statement()?),
+            TokenType::Return => Statement::ReturnStatement(self.parse_return_statement()?),
+            _ => Statement::ExpressionStatement(self.parse_expression_statement(cur_token)?),
+        })
     }
 
     fn parse_let_statement(&mut self) -> Result<LetStatement, ParseError> {
@@ -67,11 +65,15 @@ impl Parser<'_> {
         self.expect_peek(TokenType::Assign)?;
         // TODO: セミコロンまで読み飛ばしている
         while let Ok(next) = self.next_token() {
-            if next.t == TokenType::Semicolon { break; }
+            if next.t == TokenType::Semicolon {
+                break;
+            }
         }
-        let name = Identifier {value: ident_token.literal};
+        let name = Identifier {
+            value: ident_token.literal,
+        };
 
-        Ok(LetStatement{name})
+        Ok(LetStatement { name })
     }
 
     fn parse_return_statement(&mut self) -> Result<ReturnStatement, ParseError> {
@@ -79,79 +81,112 @@ impl Parser<'_> {
 
         // TODO: セミコロンまで読み飛ばしている
         while let Ok(next) = self.next_token() {
-            if next.t == TokenType::Semicolon { break; }
+            if next.t == TokenType::Semicolon {
+                break;
+            }
         }
 
-        Ok(ReturnStatement{})
+        Ok(ReturnStatement {})
     }
 
-    fn parse_expression_statement(&mut self, cur_token: Token) -> Result<ExpressionStatement, ParseError> {
+    fn parse_expression_statement(
+        &mut self,
+        cur_token: Token,
+    ) -> Result<ExpressionStatement, ParseError> {
         let expression = self.parse_expression(cur_token, Precedence::Lowest)?;
 
         if let Some(token) = self.peek_token() {
-            if token.t == TokenType::Semicolon { self.next_token()?; }
+            if token.t == TokenType::Semicolon {
+                self.next_token()?;
+            }
         }
 
-        Ok(ExpressionStatement{expression})
+        Ok(ExpressionStatement { expression })
     }
 
-    fn parse_expression(&mut self, cur_token: Token, precedence: Precedence) -> Result<Expression, ParseError> {
-        Ok(
-            match cur_token.t {
-                TokenType::Ident => Expression::Identifier(self.parse_identifier(cur_token)),
-                TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal(cur_token)?),
-                TokenType::Bang => Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?),
-                TokenType::Minus => Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?),
-                _ => return Err(ParseError {message: String::from("not implemented") })
+    fn parse_expression(
+        &mut self,
+        cur_token: Token,
+        precedence: Precedence,
+    ) -> Result<Expression, ParseError> {
+        Ok(match cur_token.t {
+            TokenType::Ident => Expression::Identifier(self.parse_identifier(cur_token)),
+            TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal(cur_token)?),
+            TokenType::Bang => {
+                Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?)
             }
-        )
+            TokenType::Minus => {
+                Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?)
+            }
+            _ => {
+                return Err(ParseError {
+                    message: String::from("not implemented"),
+                })
+            }
+        })
     }
 
     fn parse_identifier(&self, cur_token: Token) -> Identifier {
-        Identifier { value: cur_token.literal }
+        Identifier {
+            value: cur_token.literal,
+        }
     }
 
     fn parse_integer_literal(&self, cur_token: Token) -> Result<IntegerLiteral, ParseError> {
         match cur_token.literal.parse() {
             Ok(value) => Ok(IntegerLiteral { value }),
-            Err(_) =>
-                Err(ParseError {
-                    message: format!("could not parse {} as integer", cur_token.literal)
-                })
+            Err(_) => Err(ParseError {
+                message: format!("could not parse {} as integer", cur_token.literal),
+            }),
         }
     }
 
-    fn parse_prefix_expression(&mut self, cur_token: Token) -> Result<PrefixExpression, ParseError> {
+    fn parse_prefix_expression(
+        &mut self,
+        cur_token: Token,
+    ) -> Result<PrefixExpression, ParseError> {
         let next_token = self.next_token()?;
         let right = self.parse_expression(next_token, Precedence::Prefix)?;
-        Ok(PrefixExpression { operator: cur_token.literal, right: Box::new(right) })
+        Ok(PrefixExpression {
+            operator: cur_token.literal,
+            right: Box::new(right),
+        })
     }
 
     fn next_token(&mut self) -> Result<Token, ParseError> {
-        self.l.next().ok_or(ParseError {message: String::from("Unexpected EOF") })
+        self.l.next().ok_or(ParseError {
+            message: String::from("Unexpected EOF"),
+        })
     }
-    fn peek_token(&mut self) -> Option<&Token> { self.l.peek() }
+    fn peek_token(&mut self) -> Option<&Token> {
+        self.l.peek()
+    }
 
     fn expect_peek(&mut self, t: TokenType) -> Result<Token, ParseError> {
         match self.peek_token() {
             Some(peek) => {
                 if peek.t == t {
-                     self.next_token()
+                    self.next_token()
                 } else {
                     Err(ParseError {
-                        message: format!("expected next token to be {:?}, got {:?} instead", t, peek.t)
+                        message: format!(
+                            "expected next token to be {:?}, got {:?} instead",
+                            t, peek.t
+                        ),
                     })
                 }
-            },
-            None => Err(ParseError {message: String::from("Unexpected EOF") })
+            }
+            None => Err(ParseError {
+                message: String::from("Unexpected EOF"),
+            }),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Lexer, Parser};
     use super::super::ast::*;
+    use super::{Lexer, Parser};
 
     #[test]
     fn test_let_statements() {
@@ -159,20 +194,17 @@ mod tests {
 let x = 5;
 let y = 10;
 let foobar = 838383;
-"#.to_string();
+"#
+        .to_string();
 
         let l = Lexer::new(&input);
         let mut p = Parser::new(l);
 
-        let program = p. parse_program();
+        let program = p.parse_program();
         check_parse_errors(p);
         assert_eq!(program.statements.len(), 3);
 
-        let tests = [
-            "x",
-            "y",
-            "foobar"
-        ];
+        let tests = ["x", "y", "foobar"];
 
         for (i, expected) in tests.iter().enumerate() {
             let stmt = &program.statements[i];
@@ -186,24 +218,25 @@ let foobar = 838383;
 return 5;
 return 10;
 return 993322;
-"#.to_string();
+"#
+        .to_string();
 
         let l = Lexer::new(&input);
         let mut p = Parser::new(l);
 
-        let program = p. parse_program();
+        let program = p.parse_program();
         check_parse_errors(p);
         assert_eq!(program.statements.len(), 3);
     }
 
     #[test]
-    fn test_identifier_expression() {
+    fn test_identifier_expressions() {
         let input = "foobar;".to_string();
 
         let l = Lexer::new(&input);
         let mut p = Parser::new(l);
 
-        let program = p. parse_program();
+        let program = p.parse_program();
         check_parse_errors(p);
         assert_eq!(program.statements.len(), 1);
 
@@ -214,18 +247,21 @@ return 993322;
                 assert!(false, "program.statements[0] is not ast::Identifier")
             }
         } else {
-            assert!(false, "program.statements[0] is not ast::ExpressionStatement")
+            assert!(
+                false,
+                "program.statements[0] is not ast::ExpressionStatement"
+            )
         }
     }
 
     #[test]
-    fn test_integer_literal_expression() {
+    fn test_integer_literal_expressions() {
         let input = "5;".to_string();
 
         let l = Lexer::new(&input);
         let mut p = Parser::new(l);
 
-        let program = p. parse_program();
+        let program = p.parse_program();
         check_parse_errors(p);
         assert_eq!(program.statements.len(), 1);
 
@@ -236,12 +272,15 @@ return 993322;
                 assert!(false, "program.statements[0] is not ast::IntegerLiteral")
             }
         } else {
-            assert!(false, "program.statements[0] is not ast::ExpressionStatement")
+            assert!(
+                false,
+                "program.statements[0] is not ast::ExpressionStatement"
+            )
         }
     }
 
     #[test]
-    fn test_parsing_prefix_expression() {
+    fn test_parsing_prefix_expressions() {
         struct Test<'a> {
             input: &'a str,
             operator: &'a str,
@@ -249,8 +288,16 @@ return 993322;
         }
 
         let prefix_tests = vec![
-            Test{input: "!5;", operator: "!", integer_value: 5},
-            Test{input: "-15;", operator: "-", integer_value: 15},
+            Test {
+                input: "!5;",
+                operator: "!",
+                integer_value: 5,
+            },
+            Test {
+                input: "-15;",
+                operator: "-",
+                integer_value: 15,
+            },
         ];
 
         for tt in prefix_tests {
@@ -269,22 +316,35 @@ return 993322;
                     assert!(false, "stmt is not ast::PrefixExpression");
                 }
             } else {
-                assert!(false, "program.statements[0] is not ast::ExpressionStatement");
+                assert!(
+                    false,
+                    "program.statements[0] is not ast::ExpressionStatement"
+                );
             }
         }
     }
-
     fn check_parse_errors(p: Parser) {
         let errors = p.errors;
         let len = errors.len();
 
-        if len == 0 { return }
-        for e in errors { eprintln!("parser error: {}", e); }
+        if len == 0 {
+            return;
+        }
+        for e in errors {
+            eprintln!("parser error: {}", e);
+        }
         assert!(false, "parser has {} errors.", len);
     }
 
     fn assert_let_statement(statement: &Statement, expected: &str) {
-        assert_eq!(statement, &Statement::LetStatement(LetStatement{name: Identifier{value: expected.to_string()}}));
+        assert_eq!(
+            statement,
+            &Statement::LetStatement(LetStatement {
+                name: Identifier {
+                    value: expected.to_string()
+                }
+            })
+        );
     }
 
     fn assert_integer_literal(il: &Expression, value: isize) {

@@ -1,27 +1,27 @@
-#[derive(Debug,Eq,PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum TokenType {
     Illegal,
     Eof,
 
     // 識別子 + リテラル
     Ident, // add, foobar, x, y, ...
-    Int, // 12345
+    Int,   // 12345
 
     // 演算子
-    Assign, // =
-    Plus, // +
-    Minus, // -
-    Bang, // !
+    Assign,   // =
+    Plus,     // +
+    Minus,    // -
+    Bang,     // !
     Asterisk, // *
-    Slash, // /
+    Slash,    // /
 
-    Lt, // <
-    Gt, // >
-    Eq, // ==
+    Lt,    // <
+    Gt,    // >
+    Eq,    // ==
     NotEq, // !=
 
     // デリミタ
-    Comma, // ,
+    Comma,     // ,
     Semicolon, // ;
 
     LParen, // (
@@ -36,10 +36,10 @@ pub enum TokenType {
     False,
     If,
     Else,
-    Return
+    Return,
 }
 
-#[derive(Debug,Eq,PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Token {
     pub t: TokenType,
     pub literal: String,
@@ -54,6 +54,6 @@ pub fn lookup_ident(literal: &str) -> TokenType {
         "if" => TokenType::If,
         "else" => TokenType::Else,
         "return" => TokenType::Return,
-        _ => TokenType::Ident
+        _ => TokenType::Ident,
     }
 }
