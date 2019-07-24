@@ -1,7 +1,6 @@
 use std::io;
 use std::io::prelude::*;
 use super::lexer;
-use super::token::TokenType;
 
 pub fn start() {
     const PROMPT: &str = ">> ";
@@ -10,14 +9,10 @@ pub fn start() {
         io::stdout().flush().unwrap();
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
-        let mut l = lexer::Lexer::new(&input);
+        let l = lexer::Lexer::new(&input);
 
-        loop {
-            let token = l.next().unwrap();
-            match token.t {
-                TokenType::Eof => break,
-                _ => { println!("{:?}", token); }
-            }
+        for token in l {
+            println!("{:?}", token);
         }
     }
 }
