@@ -1,22 +1,20 @@
 use super::token::{lookup_ident, Token, TokenType};
 
 pub struct Lexer {
-    char_indices: std::iter::Peekable<std::vec::IntoIter<(usize, char)>>,
+    chars: std::iter::Peekable<std::vec::IntoIter<char>>,
     ch: char,
-    pos: usize,
     eof: bool,
 }
 
 impl Lexer {
     pub fn new(input: &String) -> Lexer {
         let mut l = Lexer {
-            char_indices: input
-                .char_indices()
+            chars: input
+                .chars()
                 .collect::<Vec<_>>()
                 .into_iter()
                 .peekable(),
             ch: '_',
-            pos: 0,
             eof: false,
         };
         l.read_char();
@@ -124,9 +122,8 @@ impl Lexer {
     }
 
     fn read_char(&mut self) {
-        match self.char_indices.next() {
-            Some((pos, ch)) => {
-                self.pos = pos;
+        match self.chars.next() {
+            Some(ch) => {
                 self.ch = ch;
             }
             None => {
@@ -137,8 +134,8 @@ impl Lexer {
     }
 
     fn peek_char(&mut self) -> char {
-        match self.char_indices.peek() {
-            Some((_, ch)) => *ch,
+        match self.chars.peek() {
+            Some(ch) => *ch,
             None => {
                 self.eof = true;
                 '_'
