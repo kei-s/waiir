@@ -27,14 +27,21 @@ impl fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 struct Parser {
-    l: std::iter::Peekable<Lexer>,
+    l: Lexer,
+    _cur_token: Option<Token>,
+    _peek_token: Option<Token>,
     errors: Vec<ParseError>,
 }
 
 impl Parser {
-    fn new(l: Lexer) -> Parser {
+    fn new(mut l: Lexer) -> Parser {
+        let _cur_token = l.next();
+        let _peek_token = l.next();
+
         Parser {
-            l: l.peekable(),
+            l,
+            _cur_token,
+            _peek_token,
             errors: vec![],
         }
     }
@@ -42,82 +49,68 @@ impl Parser {
     fn parse_program(&mut self) -> Program {
         let mut statements: Vec<Statement> = vec![];
 
-        while let Ok(cur_token) = self.next_token() {
-            match self.parse_statement(cur_token) {
+        while self._cur_token.is_some() {
+            match self.parse_statement() {
                 Ok(stmt) => statements.push(stmt),
                 Err(error) => self.errors.push(error),
             }
+            self.next_token();
         }
         Program { statements }
     }
 
-    fn parse_statement(&mut self, cur_token: Token) -> Result<Statement, ParseError> {
-        Ok(match cur_token.t {
+    fn parse_statement(&mut self) -> Result<Statement, ParseError> {
+        Ok(match self.cur_token().t {
             TokenType::Let => Statement::LetStatement(self.parse_let_statement()?),
             TokenType::Return => Statement::ReturnStatement(self.parse_return_statement()?),
-            _ => Statement::ExpressionStatement(self.parse_expression_statement(cur_token)?),
+            _ => Statement::ExpressionStatement(self.parse_expression_statement()?),
         })
     }
 
     fn parse_let_statement(&mut self) -> Result<LetStatement, ParseError> {
-        let ident_token = self.expect_peek(TokenType::Ident)?;
+        self.expect_peek(&TokenType::Ident);
 
-        self.expect_peek(TokenType::Assign)?;
-        // TODO: セミコロンまで読み飛ばしている
-        while let Ok(next) = self.next_token() {
-            if next.t == TokenType::Semicolon {
-                break;
-            }
-        }
         let name = Identifier {
-            value: ident_token.literal,
+            value: self.cur_token().literal.clone(),
         };
+
+        self.expect_peek(&TokenType::Assign);
+
+        // TODO: セミコロンまで読み飛ばしている
+        while !self.cur_token_is(&TokenType::Semicolon) {
+            self.next_token();
+        }
 
         Ok(LetStatement { name })
     }
 
     fn parse_return_statement(&mut self) -> Result<ReturnStatement, ParseError> {
-        self.next_token()?;
+        self.next_token();
 
         // TODO: セミコロンまで読み飛ばしている
-        while let Ok(next) = self.next_token() {
-            if next.t == TokenType::Semicolon {
-                break;
-            }
+        while !self.cur_token_is(&TokenType::Semicolon) {
+            self.next_token();
         }
 
         Ok(ReturnStatement {})
     }
 
-    fn parse_expression_statement(
-        &mut self,
-        cur_token: Token,
-    ) -> Result<ExpressionStatement, ParseError> {
-        let expression = self.parse_expression(cur_token, Precedence::Lowest)?;
+    fn parse_expression_statement(&mut self) -> Result<ExpressionStatement, ParseError> {
+        let expression = self.parse_expression(Precedence::Lowest)?;
 
-        if let Some(token) = self.peek_token() {
-            if token.t == TokenType::Semicolon {
-                self.next_token()?;
-            }
+        if self.peek_token_is(&TokenType::Semicolon) {
+            self.next_token()
         }
 
         Ok(ExpressionStatement { expression })
     }
 
-    fn parse_expression(
-        &mut self,
-        cur_token: Token,
-        precedence: Precedence,
-    ) -> Result<Expression, ParseError> {
-        Ok(match cur_token.t {
-            TokenType::Ident => Expression::Identifier(self.parse_identifier(cur_token)),
-            TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal(cur_token)?),
-            TokenType::Bang => {
-                Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?)
-            }
-            TokenType::Minus => {
-                Expression::PrefixExpression(self.parse_prefix_expression(cur_token)?)
-            }
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
+        Ok(match self.cur_token().t {
+            TokenType::Ident => Expression::Identifier(self.parse_identifier()),
+            TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal()?),
+            TokenType::Bang => Expression::PrefixExpression(self.parse_prefix_expression()?),
+            TokenType::Minus => Expression::PrefixExpression(self.parse_prefix_expression()?),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -126,59 +119,68 @@ impl Parser {
         })
     }
 
-    fn parse_identifier(&self, cur_token: Token) -> Identifier {
+    fn parse_identifier(&self) -> Identifier {
         Identifier {
-            value: cur_token.literal,
+            value: self.cur_token().literal.clone(),
         }
     }
 
-    fn parse_integer_literal(&self, cur_token: Token) -> Result<IntegerLiteral, ParseError> {
-        match cur_token.literal.parse() {
+    fn parse_integer_literal(&self) -> Result<IntegerLiteral, ParseError> {
+        match self.cur_token().literal.parse() {
             Ok(value) => Ok(IntegerLiteral { value }),
             Err(_) => Err(ParseError {
-                message: format!("could not parse {} as integer", cur_token.literal),
+                message: format!("could not parse {} as integer", self.cur_token().literal),
             }),
         }
     }
 
-    fn parse_prefix_expression(
-        &mut self,
-        cur_token: Token,
-    ) -> Result<PrefixExpression, ParseError> {
-        let next_token = self.next_token()?;
-        let right = self.parse_expression(next_token, Precedence::Prefix)?;
+    fn parse_prefix_expression(&mut self) -> Result<PrefixExpression, ParseError> {
+        let operator = self.cur_token().literal.clone();
+
+        self.next_token();
+
+        let right = self.parse_expression(Precedence::Prefix)?;
+
         Ok(PrefixExpression {
-            operator: cur_token.literal,
+            operator,
             right: Box::new(right),
         })
     }
 
-    fn next_token(&mut self) -> Result<Token, ParseError> {
-        self.l.next().ok_or(ParseError {
-            message: String::from("Unexpected EOF"),
-        })
-    }
-    fn peek_token(&mut self) -> Option<&Token> {
-        self.l.peek()
+    fn next_token(&mut self) {
+        self._cur_token = self._peek_token.take();
+        self._peek_token = self.l.next();
     }
 
-    fn expect_peek(&mut self, t: TokenType) -> Result<Token, ParseError> {
-        match self.peek_token() {
-            Some(peek) => {
-                if peek.t == t {
-                    self.next_token()
-                } else {
-                    Err(ParseError {
-                        message: format!(
-                            "expected next token to be {:?}, got {:?} instead",
-                            t, peek.t
-                        ),
-                    })
-                }
-            }
-            None => Err(ParseError {
-                message: String::from("Unexpected EOF"),
-            }),
+    fn cur_token(&self) -> &Token {
+        self._cur_token.as_ref().unwrap()
+    }
+
+    fn peek_token(&self) -> &Token {
+        self._peek_token.as_ref().unwrap()
+    }
+
+    fn cur_token_is(&self, t: &TokenType) -> bool {
+        &self.cur_token().t == t
+    }
+
+    fn peek_token_is(&self, t: &TokenType) -> bool {
+        &self.peek_token().t == t
+    }
+
+    fn expect_peek(&mut self, t: &TokenType) -> bool {
+        if self.peek_token_is(t) {
+            self.next_token();
+            true
+        } else {
+            self.errors.push(ParseError {
+                message: format!(
+                    "expected next token to be {:?}, got {:?} instead",
+                    t,
+                    self.peek_token().t
+                ),
+            });
+            false
         }
     }
 }
