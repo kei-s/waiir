@@ -1,18 +1,20 @@
 use super::token::{lookup_ident, Token, TokenType};
 
-pub struct Lexer<'a> {
-    input: &'a String,
-    char_indices: std::iter::Peekable<std::str::CharIndices<'a>>,
+pub struct Lexer {
+    char_indices: std::iter::Peekable<std::vec::IntoIter<(usize, char)>>,
     ch: char,
     pos: usize,
     eof: bool,
 }
 
-impl<'a> Lexer<'a> {
+impl Lexer {
     pub fn new(input: &String) -> Lexer {
         let mut l = Lexer {
-            input,
-            char_indices: input.char_indices().peekable(),
+            char_indices: input
+                .char_indices()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .peekable(),
             ch: '_',
             pos: 0,
             eof: false,
@@ -145,10 +147,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn read_identifier(&mut self) -> Token {
-        let start = self.pos;
+        let mut literal = String::new();
         loop {
             match self.ch {
                 'a'...'z' | 'A'...'Z' | '_' => {
+                    literal.push(self.ch);
                     self.read_char();
                 }
                 _ => {
@@ -156,18 +159,18 @@ impl<'a> Lexer<'a> {
                 }
             };
         }
-        let literal = &self.input[start..self.pos];
         Token {
-            t: lookup_ident(literal),
-            literal: literal.to_string(),
+            t: lookup_ident(literal.as_str()),
+            literal: literal,
         }
     }
 
     fn read_number(&mut self) -> Token {
-        let start = self.pos;
+        let mut literal = String::new();
         loop {
             match self.ch {
                 '0'..='9' => {
+                    literal.push(self.ch);
                     self.read_char();
                 }
                 _ => {
@@ -175,10 +178,9 @@ impl<'a> Lexer<'a> {
                 }
             };
         }
-        let literal = &self.input[start..self.pos];
         Token {
             t: TokenType::Int,
-            literal: literal.to_string(),
+            literal: literal,
         }
     }
 
@@ -194,7 +196,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
-impl Iterator for Lexer<'_> {
+impl Iterator for Lexer {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
         self.next_token()

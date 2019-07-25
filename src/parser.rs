@@ -26,12 +26,12 @@ impl fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
-struct Parser<'a> {
-    l: std::iter::Peekable<Lexer<'a>>,
+struct Parser {
+    l: std::iter::Peekable<Lexer>,
     errors: Vec<ParseError>,
 }
 
-impl Parser<'_> {
+impl Parser {
     fn new(l: Lexer) -> Parser {
         Parser {
             l: l.peekable(),
