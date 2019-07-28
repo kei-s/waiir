@@ -2,20 +2,14 @@ use super::token::{lookup_ident, Token, TokenType};
 
 pub struct Lexer {
     chars: std::iter::Peekable<std::vec::IntoIter<char>>,
-    ch: char,
-    eof: bool,
+    ch: Option<char>,
 }
 
 impl Lexer {
     pub fn new(input: &String) -> Lexer {
         let mut l = Lexer {
-            chars: input
-                .chars()
-                .collect::<Vec<_>>()
-                .into_iter()
-                .peekable(),
-            ch: '_',
-            eof: false,
+            chars: input.chars().collect::<Vec<_>>().into_iter().peekable(),
+            ch: None,
         };
         l.read_char();
         l
@@ -24,15 +18,12 @@ impl Lexer {
     fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
 
-        let tok = if self.eof {
-            None
-        } else {
-            Some(match self.ch {
+        let tok = if let Some(ch) = self.ch {
+            Some(match ch {
                 '=' => {
-                    if self.peek_char() == '=' {
-                        let ch = self.ch;
+                    if self.peek_char().is_some() && self.peek_char().unwrap() == &'=' {
                         self.read_char();
-                        let literal: String = vec![ch, self.ch].into_iter().collect();
+                        let literal: String = vec![ch, self.ch.unwrap()].into_iter().collect();
                         Token {
                             t: TokenType::Eq,
                             literal,
@@ -40,23 +31,22 @@ impl Lexer {
                     } else {
                         Token {
                             t: TokenType::Assign,
-                            literal: self.ch.to_string(),
+                            literal: ch.to_string(),
                         }
                     }
                 }
                 '+' => Token {
                     t: TokenType::Plus,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '-' => Token {
                     t: TokenType::Minus,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '!' => {
-                    if self.peek_char() == '=' {
-                        let ch = self.ch;
+                    if self.peek_char().is_some() && self.peek_char().unwrap() == &'=' {
                         self.read_char();
-                        let literal: String = vec![ch, self.ch].into_iter().collect();
+                        let literal: String = vec![ch, self.ch.unwrap()].into_iter().collect();
                         Token {
                             t: TokenType::NotEq,
                             literal,
@@ -64,57 +54,59 @@ impl Lexer {
                     } else {
                         Token {
                             t: TokenType::Bang,
-                            literal: self.ch.to_string(),
+                            literal: ch.to_string(),
                         }
                     }
                 }
                 '*' => Token {
                     t: TokenType::Asterisk,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '/' => Token {
                     t: TokenType::Slash,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '<' => Token {
                     t: TokenType::Lt,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '>' => Token {
                     t: TokenType::Gt,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 ',' => Token {
                     t: TokenType::Comma,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 ';' => Token {
                     t: TokenType::Semicolon,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '(' => Token {
                     t: TokenType::LParen,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 ')' => Token {
                     t: TokenType::RParen,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '{' => Token {
                     t: TokenType::LBrace,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 '}' => Token {
                     t: TokenType::RBrace,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
                 'a'..='z' | 'A'..='Z' | '_' => return Some(self.read_identifier()),
                 '0'..='9' => return Some(self.read_number()),
                 _ => Token {
                     t: TokenType::Illegal,
-                    literal: self.ch.to_string(),
+                    literal: ch.to_string(),
                 },
             })
+        } else {
+            None
         };
 
         self.read_char();
@@ -122,39 +114,29 @@ impl Lexer {
     }
 
     fn read_char(&mut self) {
-        match self.chars.next() {
-            Some(ch) => {
-                self.ch = ch;
-            }
-            None => {
-                self.eof = true;
-                self.ch = '_'
-            }
-        }
+        self.ch = self.chars.next();
     }
 
-    fn peek_char(&mut self) -> char {
-        match self.chars.peek() {
-            Some(ch) => *ch,
-            None => {
-                self.eof = true;
-                '_'
-            }
-        }
+    fn peek_char(&mut self) -> Option<&char> {
+        self.chars.peek()
     }
 
     fn read_identifier(&mut self) -> Token {
         let mut literal = String::new();
         loop {
-            match self.ch {
-                'a'...'z' | 'A'...'Z' | '_' => {
-                    literal.push(self.ch);
-                    self.read_char();
+            if let Some(ch) = self.ch {
+                match ch {
+                    'a'..='z' | 'A'..='Z' | '_' => {
+                        literal.push(ch);
+                        self.read_char();
+                    }
+                    _ => {
+                        break;
+                    }
                 }
-                _ => {
-                    break;
-                }
-            };
+            } else {
+                break;
+            }
         }
         Token {
             t: lookup_ident(literal.as_str()),
@@ -165,15 +147,19 @@ impl Lexer {
     fn read_number(&mut self) -> Token {
         let mut literal = String::new();
         loop {
-            match self.ch {
-                '0'..='9' => {
-                    literal.push(self.ch);
-                    self.read_char();
-                }
-                _ => {
-                    break;
-                }
-            };
+            if let Some(ch) = self.ch {
+                match ch {
+                    '0'..='9' => {
+                        literal.push(ch);
+                        self.read_char();
+                    }
+                    _ => {
+                        break;
+                    }
+                };
+            } else {
+                break;
+            }
         }
         Token {
             t: TokenType::Int,
@@ -183,12 +169,16 @@ impl Lexer {
 
     fn skip_whitespace(&mut self) {
         loop {
-            match self.ch {
-                ' ' | '\t' | '\n' | '\r' => self.read_char(),
-                _ => {
-                    break;
-                }
-            };
+            if let Some(ch) = self.ch {
+                match ch {
+                    ' ' | '\t' | '\n' | '\r' => self.read_char(),
+                    _ => {
+                        break;
+                    }
+                };
+            } else {
+                break;
+            }
         }
     }
 }
@@ -225,8 +215,8 @@ if (5 < 10) {
 
 10 == 10;
 10 != 9;
-"#
-        .to_string();
+-a * b"#
+            .to_string();
 
         let tests = vec![
             (TokenType::Let, "let"),
@@ -302,6 +292,10 @@ if (5 < 10) {
             (TokenType::NotEq, "!="),
             (TokenType::Int, "9"),
             (TokenType::Semicolon, ";"),
+            (TokenType::Minus, "-"),
+            (TokenType::Ident, "a"),
+            (TokenType::Asterisk, "*"),
+            (TokenType::Ident, "b"),
         ];
 
         let mut l = Lexer::new(&input);
