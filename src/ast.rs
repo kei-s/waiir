@@ -103,7 +103,8 @@ gen_enum!(
     Expression,
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
-    PrefixExpression(PrefixExpression)
+    PrefixExpression(PrefixExpression),
+    InfixExpression(InfixExpression)
 );
 
 #[derive(Debug, PartialEq)]
@@ -137,6 +138,19 @@ pub struct PrefixExpression {
 impl fmt::Display for PrefixExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({}{})", self.operator, self.right)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct InfixExpression {
+    pub left: Box<Expression>,
+    pub operator: String,
+    pub right: Box<Expression>,
+}
+
+impl fmt::Display for InfixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {} {})", self.left, self.operator, self.right)
     }
 }
 
