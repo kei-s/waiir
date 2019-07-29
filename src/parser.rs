@@ -362,7 +362,7 @@ return 993322;
             if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
                 if let Expression::PrefixExpression(exp) = &stmt.expression {
                     assert_eq!(exp.operator, expected_operator);
-                    assert_integer_literal(&*exp.right, expected_integer_value);
+                    assert_literal_expression(&*exp.right, expected_integer_value);
                 } else {
                     assert!(false, "stmt is not ast::PrefixExpression");
                 }
@@ -386,6 +386,7 @@ return 993322;
             ("5 < 5;", 5, "<", 5),
             ("5 == 5;", 5, "==", 5),
             ("5 != 5;", 5, "!=", 5),
+            // ("a != 5;", "a".to_string(), "!=", 5),
         ];
 
         for tt in infix_tests {
@@ -401,13 +402,12 @@ return 993322;
 
             assert_eq!(program.statements.len(), 1);
             if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
-                if let Expression::InfixExpression(exp) = &stmt.expression {
-                    assert_integer_literal(&*exp.left, expected_left_value);
-                    assert_eq!(exp.operator, expected_operator);
-                    assert_integer_literal(&*exp.right, expected_right_value);
-                } else {
-                    assert!(false, "stmt is not ast::InfixExpression");
-                }
+                assert_infix_expression(
+                    &stmt.expression,
+                    expected_left_value,
+                    expected_operator,
+                    expected_right_value,
+                );
             } else {
                 assert!(
                     false,
@@ -480,6 +480,50 @@ return 993322;
             assert_eq!(format!("{}", integ.value), format!("{}", value));
         } else {
             assert!(false, "il not ast::IntegerLiteral");
+        }
+    }
+
+    fn assert_identifier(exp: &Expression, value: &String) {
+        if let Expression::Identifier(ident) = exp {
+            assert_eq!(&ident.value, value);
+            assert_eq!(format!("{}", ident.value), format!("{}", value));
+        } else {
+            assert!(false, "exp not ast::Identifier");
+        }
+    }
+
+    trait AssertWithExpression {
+        fn assert_with(self, exp: &Expression);
+    }
+
+    impl AssertWithExpression for isize {
+        fn assert_with(self, exp: &Expression) {
+            assert_integer_literal(exp, self);
+        }
+    }
+
+    impl AssertWithExpression for String {
+        fn assert_with(self, exp: &Expression) {
+            assert_identifier(exp, &self);
+        }
+    }
+
+    fn assert_literal_expression<T: AssertWithExpression>(exp: &Expression, expected: T) {
+        expected.assert_with(exp);
+    }
+
+    fn assert_infix_expression<T: AssertWithExpression, U: AssertWithExpression>(
+        exp: &Expression,
+        left: T,
+        operator: &str,
+        right: U,
+    ) {
+        if let Expression::InfixExpression(op_exp) = exp {
+            assert_literal_expression(&*op_exp.left, left);
+            assert_eq!(&op_exp.operator, operator);
+            assert_literal_expression(&*op_exp.right, right);
+        } else {
+            assert!(false, "exp not ast::InfixExpression");
         }
     }
 }
