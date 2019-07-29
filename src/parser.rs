@@ -114,6 +114,7 @@ impl Parser {
                 Expression::PrefixExpression(self.parse_prefix_expression()?)
             }
             TokenType::True | TokenType::False => Expression::Boolean(self.parse_boolean()),
+            TokenType::LParen => self.parse_grouped_expression()?,
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -188,6 +189,19 @@ impl Parser {
     fn parse_boolean(&mut self) -> Boolean {
         Boolean {
             value: self.cur_token_is(&TokenType::True),
+        }
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<Expression, ParseError> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest)?;
+        if !self.expect_peek(&TokenType::RParen) {
+            Err(ParseError {
+                message: String::from("Unexpected RParen"),
+            })
+        } else {
+            Ok(exp)
         }
     }
 
@@ -458,6 +472,11 @@ return 993322;
             ("false", "false"),
             ("3 > 5 == false", "((3 > 5) == false)"),
             ("3 < 5 == true", "((3 < 5) == true)"),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            ("-(5 + 5)", "(-(5 + 5))"),
+            ("!(true == true)", "(!(true == true))"),
         ];
 
         for tt in tests {
