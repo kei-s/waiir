@@ -113,6 +113,7 @@ impl Parser {
             TokenType::Bang | TokenType::Minus => {
                 Expression::PrefixExpression(self.parse_prefix_expression()?)
             }
+            TokenType::True | TokenType::False => Expression::Boolean(self.parse_boolean()),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -182,6 +183,12 @@ impl Parser {
             operator,
             right: Box::new(right),
         })
+    }
+
+    fn parse_boolean(&mut self) -> Boolean {
+        Boolean {
+            value: self.cur_token_is(&TokenType::True),
+        }
     }
 
     fn next_token(&mut self) {
@@ -346,38 +353,41 @@ return 993322;
 
     #[test]
     fn test_parsing_prefix_expressions() {
-        let prefix_tests = vec![("!5;", "!", 5), ("-15;", "-", 15)];
+        test(vec![("!5;", "!", 5), ("-15;", "-", 15)]);
+        test(vec![("!true;", "!", true), ("!false;", "!", false)]);
 
-        for tt in prefix_tests {
-            let input = tt.0.to_string();
-            let expected_operator = tt.1;
-            let expected_integer_value = tt.2;
+        fn test<T: AssertWithExpression>(tests: std::vec::Vec<(&str, &str, T)>) {
+            for tt in tests {
+                let input = tt.0.to_string();
+                let expected_operator = tt.1;
+                let expected_integer_value = tt.2;
 
-            let l = Lexer::new(&input);
-            let mut p = Parser::new(l);
-            let program = p.parse_program();
-            check_parse_errors(p);
+                let l = Lexer::new(&input);
+                let mut p = Parser::new(l);
+                let program = p.parse_program();
+                check_parse_errors(p);
 
-            assert_eq!(program.statements.len(), 1);
-            if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
-                if let Expression::PrefixExpression(exp) = &stmt.expression {
-                    assert_eq!(exp.operator, expected_operator);
-                    assert_literal_expression(&*exp.right, expected_integer_value);
+                assert_eq!(program.statements.len(), 1);
+                if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+                    if let Expression::PrefixExpression(exp) = &stmt.expression {
+                        assert_eq!(exp.operator, expected_operator);
+                        assert_literal_expression(&*exp.right, expected_integer_value);
+                    } else {
+                        assert!(false, "stmt is not ast::PrefixExpression");
+                    }
                 } else {
-                    assert!(false, "stmt is not ast::PrefixExpression");
+                    assert!(
+                        false,
+                        "program.statements[0] is not ast::ExpressionStatement"
+                    );
                 }
-            } else {
-                assert!(
-                    false,
-                    "program.statements[0] is not ast::ExpressionStatement"
-                );
             }
         }
     }
 
     #[test]
     fn test_parsing_infix_expressions() {
-        let infix_tests = vec![
+        test(vec![
             ("5 + 5;", 5, "+", 5),
             ("5 - 5;", 5, "-", 5),
             ("5 * 5;", 5, "*", 5),
@@ -386,33 +396,42 @@ return 993322;
             ("5 < 5;", 5, "<", 5),
             ("5 == 5;", 5, "==", 5),
             ("5 != 5;", 5, "!=", 5),
-            // ("a != 5;", "a".to_string(), "!=", 5),
-        ];
+        ]);
 
-        for tt in infix_tests {
-            let input = tt.0.to_string();
-            let expected_left_value = tt.1;
-            let expected_operator = tt.2;
-            let expected_right_value = tt.3;
+        test(vec![
+            ("true == true", true, "==", true),
+            ("true != false", true, "!=", false),
+            ("false == false", false, "==", false),
+        ]);
 
-            let l = Lexer::new(&input);
-            let mut p = Parser::new(l);
-            let program = p.parse_program();
-            check_parse_errors(p);
+        fn test<T: AssertWithExpression, U: AssertWithExpression>(
+            tests: std::vec::Vec<(&str, T, &str, U)>,
+        ) {
+            for tt in tests {
+                let input = tt.0.to_string();
+                let expected_left_value = tt.1;
+                let expected_operator = tt.2;
+                let expected_right_value = tt.3;
 
-            assert_eq!(program.statements.len(), 1);
-            if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
-                assert_infix_expression(
-                    &stmt.expression,
-                    expected_left_value,
-                    expected_operator,
-                    expected_right_value,
-                );
-            } else {
-                assert!(
-                    false,
-                    "program.statements[0] is not ast::ExpressionStatement"
-                );
+                let l = Lexer::new(&input);
+                let mut p = Parser::new(l);
+                let program = p.parse_program();
+                check_parse_errors(p);
+
+                assert_eq!(program.statements.len(), 1);
+                if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+                    assert_infix_expression(
+                        &stmt.expression,
+                        expected_left_value,
+                        expected_operator,
+                        expected_right_value,
+                    );
+                } else {
+                    assert!(
+                        false,
+                        "program.statements[0] is not ast::ExpressionStatement"
+                    );
+                }
             }
         }
     }
@@ -435,6 +454,10 @@ return 993322;
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ),
+            ("true", "true"),
+            ("false", "false"),
+            ("3 > 5 == false", "((3 > 5) == false)"),
+            ("3 < 5 == true", "((3 < 5) == true)"),
         ];
 
         for tt in tests {
@@ -447,6 +470,35 @@ return 993322;
             check_parse_errors(p);
 
             assert_eq!(format!("{}", program), expected);
+        }
+    }
+
+    #[test]
+    fn test_boolean_expressions() {
+        let tests = vec![("true;", true), ("false;", false)];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+
+            let l = Lexer::new(&input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parse_errors(p);
+            assert_eq!(program.statements.len(), 1);
+
+            if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+                if let Expression::Boolean(boolean) = &stmt.expression {
+                    assert_eq!(boolean.value, expected);
+                } else {
+                    assert!(false, "program.statements[0] is not ast::BooleanExpression")
+                }
+            } else {
+                assert!(
+                    false,
+                    "program.statements[0] is not ast::ExpressionStatement"
+                )
+            }
         }
     }
 
@@ -492,6 +544,15 @@ return 993322;
         }
     }
 
+    fn assert_boolean_literal(exp: &Expression, value: bool) {
+        if let Expression::Boolean(boolean) = exp {
+            assert_eq!(boolean.value, value);
+            assert_eq!(format!("{}", boolean.value), format!("{}", value));
+        } else {
+            assert!(false, "exp not ast::Boolean");
+        }
+    }
+
     trait AssertWithExpression {
         fn assert_with(self, exp: &Expression);
     }
@@ -505,6 +566,12 @@ return 993322;
     impl AssertWithExpression for String {
         fn assert_with(self, exp: &Expression) {
             assert_identifier(exp, &self);
+        }
+    }
+
+    impl AssertWithExpression for bool {
+        fn assert_with(self, exp: &Expression) {
+            assert_boolean_literal(exp, self);
         }
     }
 

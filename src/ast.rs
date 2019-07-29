@@ -104,7 +104,8 @@ gen_enum!(
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
     PrefixExpression(PrefixExpression),
-    InfixExpression(InfixExpression)
+    InfixExpression(InfixExpression),
+    Boolean(Boolean)
 );
 
 #[derive(Debug, PartialEq)]
@@ -151,6 +152,17 @@ pub struct InfixExpression {
 impl fmt::Display for InfixExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({} {} {})", self.left, self.operator, self.right)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Boolean {
+    pub value: bool,
+}
+
+impl fmt::Display for Boolean {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
