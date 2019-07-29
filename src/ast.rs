@@ -61,7 +61,8 @@ gen_enum!(
     Statement,
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
-    ExpressionStatement(ExpressionStatement)
+    ExpressionStatement(ExpressionStatement),
+    BlockStatement(BlockStatement)
 );
 
 #[derive(Debug, PartialEq)]
@@ -98,6 +99,17 @@ impl fmt::Display for ExpressionStatement {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct BlockStatement {
+    pub statements: Vec<Statement>,
+}
+
+impl fmt::Display for BlockStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.statements.iter().map(|s| write!(f, "{}", s)).collect()
+    }
+}
+
 // Expression
 gen_enum!(
     Expression,
@@ -105,7 +117,8 @@ gen_enum!(
     IntegerLiteral(IntegerLiteral),
     PrefixExpression(PrefixExpression),
     InfixExpression(InfixExpression),
-    Boolean(Boolean)
+    Boolean(Boolean),
+    IfExpression(IfExpression)
 );
 
 #[derive(Debug, PartialEq)]
@@ -163,6 +176,27 @@ pub struct Boolean {
 impl fmt::Display for Boolean {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct IfExpression {
+    pub condition: Box<Expression>,
+    pub consequence: Box<BlockStatement>,
+    pub alternative: Option<Box<BlockStatement>>,
+}
+
+impl fmt::Display for IfExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(alternative) = &self.alternative {
+            write!(
+                f,
+                "if{} {}else {}",
+                self.condition, self.consequence, alternative
+            )
+        } else {
+            write!(f, "if{} {}", self.condition, self.consequence)
+        }
     }
 }
 

@@ -115,6 +115,7 @@ impl Parser {
             }
             TokenType::True | TokenType::False => Expression::Boolean(self.parse_boolean()),
             TokenType::LParen => self.parse_grouped_expression()?,
+            TokenType::If => Expression::IfExpression(self.parse_if_expression()?),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -198,11 +199,66 @@ impl Parser {
         let exp = self.parse_expression(Precedence::Lowest)?;
         if !self.expect_peek(&TokenType::RParen) {
             Err(ParseError {
-                message: String::from("Unexpected RParen"),
+                message: String::from("Missing RParen"),
             })
         } else {
             Ok(exp)
         }
+    }
+
+    fn parse_if_expression(&mut self) -> Result<IfExpression, ParseError> {
+        if !self.expect_peek(&TokenType::LParen) {
+            return Err(ParseError {
+                message: String::from("Missing LParen"),
+            });
+        }
+
+        self.next_token();
+        let condition = self.parse_expression(Precedence::Lowest)?;
+
+        if !self.expect_peek(&TokenType::RParen) {
+            return Err(ParseError {
+                message: String::from("Missing RParen"),
+            });
+        }
+        if !self.expect_peek(&TokenType::LBrace) {
+            return Err(ParseError {
+                message: String::from("Missing LBrace"),
+            });
+        }
+
+        let consequence = self.parse_block_statement()?;
+
+        let alternative = if self.peek_token_is(&TokenType::Else) {
+            self.next_token();
+            if !self.expect_peek(&TokenType::LBrace) {
+            return Err(ParseError {
+                message: String::from("Missing LBrace"),
+            });
+            }
+            Some(Box::new(self.parse_block_statement()?))
+        } else {
+            None
+        };
+
+        Ok(IfExpression {
+            condition: Box::new(condition),
+            consequence: Box::new(consequence),
+            alternative,
+        })
+    }
+
+    fn parse_block_statement(&mut self) -> Result<BlockStatement, ParseError> {
+        let mut statements: Vec<Statement> = vec![];
+
+        self.next_token();
+
+        while !self.cur_token_is(&TokenType::RBrace) && !self._cur_token.is_none() {
+            statements.push(self.parse_statement()?);
+            self.next_token();
+        }
+
+        Ok(BlockStatement { statements })
     }
 
     fn next_token(&mut self) {
@@ -518,6 +574,81 @@ return 993322;
                     "program.statements[0] is not ast::ExpressionStatement"
                 )
             }
+        }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+        assert_eq!(program.statements.len(), 1);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::IfExpression(exp) = &stmt.expression {
+                assert_infix_expression(&*exp.condition, "x".to_string(), "<", "y".to_string());
+                assert_eq!(exp.consequence.statements.len(), 1);
+                if let Statement::ExpressionStatement(consequence) = &exp.consequence.statements[0]
+                {
+                    assert_identifier(&consequence.expression, &"x".to_string());
+                } else {
+                    assert!(false, "statements[0] is not ast::ExpressionStatement")
+                }
+                assert_eq!(exp.alternative, None);
+            } else {
+                assert!(false, "stmt.expression is not ast::IfExpression")
+            }
+        } else {
+            assert!(
+                false,
+                "program.statements[0] is not ast::ExpressionStatement"
+            )
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+        assert_eq!(program.statements.len(), 1);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::IfExpression(exp) = &stmt.expression {
+                assert_infix_expression(&*exp.condition, "x".to_string(), "<", "y".to_string());
+                assert_eq!(exp.consequence.statements.len(), 1);
+                if let Statement::ExpressionStatement(consequence) = &exp.consequence.statements[0]
+                {
+                    assert_identifier(&consequence.expression, &"x".to_string());
+                } else {
+                    assert!(false, "statements[0] is not ast::ExpressionStatement")
+                }
+                if let Some(exp_alternative) = &exp.alternative {
+                    assert_eq!(exp_alternative.statements.len(), 1);
+                    if let Statement::ExpressionStatement(alternative) =
+                        &(*exp_alternative).statements[0]
+                    {
+                        assert_identifier(&alternative.expression, &"y".to_string());
+                    } else {
+                        assert!(false, "statements[0] is not ast::ExpressionStatement")
+                    }
+                } else {
+                    assert!(false, "exp.alternative is None")
+                }
+            } else {
+                assert!(false, "stmt.expression is not ast::IfExpression")
+            }
+        } else {
+            assert!(
+                false,
+                "program.statements[0] is not ast::ExpressionStatement"
+            )
         }
     }
 
