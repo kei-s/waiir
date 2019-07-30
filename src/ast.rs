@@ -118,7 +118,8 @@ gen_enum!(
     PrefixExpression(PrefixExpression),
     InfixExpression(InfixExpression),
     Boolean(Boolean),
-    IfExpression(IfExpression)
+    IfExpression(IfExpression),
+    FunctionLiteral(FunctionLiteral)
 );
 
 #[derive(Debug, PartialEq)]
@@ -197,6 +198,27 @@ impl fmt::Display for IfExpression {
         } else {
             write!(f, "if{} {}", self.condition, self.consequence)
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FunctionLiteral {
+    pub parameters: Vec<Identifier>,
+    pub body: Box<BlockStatement>,
+}
+
+impl fmt::Display for FunctionLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "fn({}) {}",
+            self.parameters
+                .iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.body
+        )
     }
 }
 

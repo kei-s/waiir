@@ -143,6 +143,7 @@ impl Parser {
             TokenType::True | TokenType::False => Expression::Boolean(self.parse_boolean()),
             TokenType::LParen => self.parse_grouped_expression()?,
             TokenType::If => Expression::IfExpression(self.parse_if_expression()?),
+            TokenType::Function => Expression::FunctionLiteral(self.parse_function_literal()?),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -236,9 +237,9 @@ impl Parser {
         let alternative = if self.peek_token_is(&TokenType::Else) {
             self.next_token();
             if !self.expect_peek(&TokenType::LBrace) {
-            return Err(ParseError {
-                message: String::from("Missing LBrace"),
-            });
+                return Err(ParseError {
+                    message: String::from("Missing LBrace"),
+                });
             }
             Some(Box::new(self.parse_block_statement()?))
         } else {
@@ -263,6 +264,60 @@ impl Parser {
         }
 
         Ok(BlockStatement { statements })
+    }
+
+    fn parse_function_literal(&mut self) -> Result<FunctionLiteral, ParseError> {
+        if !self.expect_peek(&TokenType::LParen) {
+            return Err(ParseError {
+                message: String::from("Missing LParen"),
+            });
+        }
+
+        let parameters = self.parse_function_parameters()?;
+
+        if !self.expect_peek(&TokenType::LBrace) {
+            return Err(ParseError {
+                message: String::from("Missing LBrace"),
+            });
+        }
+
+        let body = self.parse_block_statement()?;
+
+        Ok(FunctionLiteral {
+            parameters,
+            body: Box::new(body),
+        })
+    }
+
+    fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>, ParseError> {
+        let mut identifiers: Vec<Identifier> = vec![];
+
+        if self.peek_token_is(&TokenType::RParen) {
+            self.next_token();
+            return Ok(identifiers);
+        }
+
+        self.next_token();
+
+        identifiers.push(Identifier {
+            value: self.cur_token().literal.clone(),
+        });
+
+        while self.peek_token_is(&TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            identifiers.push(Identifier {
+                value: self.cur_token().literal.clone(),
+            });
+        }
+
+        if !self.expect_peek(&TokenType::RParen) {
+            return Err(ParseError {
+                message: String::from("Missing RParen"),
+            });
+        }
+
+        Ok(identifiers)
     }
 
     fn next_token(&mut self) {
@@ -653,6 +708,66 @@ return 993322;
                 false,
                 "program.statements[0] is not ast::ExpressionStatement"
             )
+        }
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "fn(x, y) { x + y; }".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+        assert_eq!(program.statements.len(), 1);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::FunctionLiteral(function) = &stmt.expression {
+                assert_eq!(function.parameters[0].value, "x".to_string());
+                assert_eq!(format!("{}", function.parameters[0].value), "x");
+                assert_eq!(function.parameters[1].value, "y".to_string());
+                assert_eq!(format!("{}", function.parameters[1].value), "y");
+            } else {
+                assert!(false, "stmt.expression is not ast::FunctionLiteral")
+            }
+        } else {
+            assert!(
+                false,
+                "program.statements[0] is not ast::ExpressionStatement"
+            )
+        }
+    }
+
+    #[test]
+    fn test_function_parameter_parsing() {
+        let tests = vec![
+            ("fn() {};", vec![]),
+            ("fn(x) {};", vec!["x"]),
+            ("fn(x, y, z) {};", vec!["x", "y", "z"]),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+
+            let l = Lexer::new(&input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parse_errors(p);
+
+            if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+                if let Expression::FunctionLiteral(function) = &stmt.expression {
+                    assert_eq!(function.parameters.len(), expected.len());
+
+                    for (i, ident) in expected.iter().enumerate() {
+                        assert_eq!(function.parameters[i].value, ident.to_string());
+                        assert_eq!(
+                            format!("{}", function.parameters[i].value),
+                            ident.to_string()
+                        );
+                    }
+                }
+            }
         }
     }
 
