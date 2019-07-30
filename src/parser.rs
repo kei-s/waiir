@@ -107,21 +107,7 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
-        let mut left_exp = match self.cur_token().t {
-            TokenType::Ident => Expression::Identifier(self.parse_identifier()),
-            TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal()?),
-            TokenType::Bang | TokenType::Minus => {
-                Expression::PrefixExpression(self.parse_prefix_expression()?)
-            }
-            TokenType::True | TokenType::False => Expression::Boolean(self.parse_boolean()),
-            TokenType::LParen => self.parse_grouped_expression()?,
-            TokenType::If => Expression::IfExpression(self.parse_if_expression()?),
-            _ => {
-                return Err(ParseError {
-                    message: String::from("not implemented"),
-                })
-            }
-        };
+        let mut left_exp = self.parse_prefix()?;
 
         loop {
             if !self.peek_token_is(&TokenType::Semicolon) && precedence < self.peek_precedence() {
@@ -145,6 +131,24 @@ impl Parser {
         }
 
         Ok(left_exp)
+    }
+
+    fn parse_prefix(&mut self) -> Result<Expression, ParseError> {
+        Ok(match self.cur_token().t {
+            TokenType::Ident => Expression::Identifier(self.parse_identifier()),
+            TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal()?),
+            TokenType::Bang | TokenType::Minus => {
+                Expression::PrefixExpression(self.parse_prefix_expression()?)
+            }
+            TokenType::True | TokenType::False => Expression::Boolean(self.parse_boolean()),
+            TokenType::LParen => self.parse_grouped_expression()?,
+            TokenType::If => Expression::IfExpression(self.parse_if_expression()?),
+            _ => {
+                return Err(ParseError {
+                    message: String::from("not implemented"),
+                })
+            }
+        })
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<InfixExpression, ParseError> {
