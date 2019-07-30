@@ -119,7 +119,8 @@ gen_enum!(
     InfixExpression(InfixExpression),
     Boolean(Boolean),
     IfExpression(IfExpression),
-    FunctionLiteral(FunctionLiteral)
+    FunctionLiteral(FunctionLiteral),
+    CallExpression(CallExpression)
 );
 
 #[derive(Debug, PartialEq)]
@@ -222,6 +223,26 @@ impl fmt::Display for FunctionLiteral {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct CallExpression {
+    pub function: Box<Expression>,
+    pub arguments: Vec<Expression>,
+}
+
+impl fmt::Display for CallExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.function,
+            self.arguments
+                .iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

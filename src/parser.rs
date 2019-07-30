@@ -123,6 +123,10 @@ impl Parser {
                         self.next_token();
                         Expression::InfixExpression(self.parse_infix_expression(left_exp)?)
                     }
+                    TokenType::LParen => {
+                        self.next_token();
+                        Expression::CallExpression(self.parse_call_expression(left_exp)?)
+                    }
                     _ => return Ok(left_exp),
                 };
             } else {
@@ -320,6 +324,43 @@ impl Parser {
         Ok(identifiers)
     }
 
+    fn parse_call_expression(
+        &mut self,
+        function: Expression,
+    ) -> Result<CallExpression, ParseError> {
+        let arguments = self.parse_call_arguments()?;
+        Ok(CallExpression {
+            function: Box::new(function),
+            arguments,
+        })
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>, ParseError> {
+        let mut args: Vec<Expression> = vec![];
+
+        if self.peek_token_is(&TokenType::RParen) {
+            self.next_token();
+            return Ok(args);
+        }
+
+        self.next_token();
+        args.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.peek_token_is(&TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            args.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        if !self.expect_peek(&TokenType::RParen) {
+            return Err(ParseError {
+                message: String::from("Missing RParen"),
+            });
+        }
+
+        Ok(args)
+    }
+
     fn next_token(&mut self) {
         self._cur_token = self._peek_token.take();
         self._peek_token = self.l.next();
@@ -379,6 +420,7 @@ impl Parser {
             TokenType::Minus => Precedence::Sum,
             TokenType::Slash => Precedence::Product,
             TokenType::Asterisk => Precedence::Product,
+            TokenType::LParen => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -592,6 +634,15 @@ return 993322;
             ("2 / (5 + 5)", "(2 / (5 + 5))"),
             ("-(5 + 5)", "(-(5 + 5))"),
             ("!(true == true)", "(!(true == true))"),
+            ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+            (
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ),
+            (
+                "add(a + b + c * d / f + g)",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ),
         ];
 
         for tt in tests {
@@ -768,6 +819,31 @@ return 993322;
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        assert_eq!(program.statements.len(), 1);
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::CallExpression(exp) = &stmt.expression {
+                assert_identifier(&*exp.function, &"add".to_string());
+                assert_eq!(exp.arguments.len(), 3);
+                assert_literal_expression(&exp.arguments[0], 1);
+                assert_infix_expression(&exp.arguments[1], 2, "*", 3);
+                assert_infix_expression(&exp.arguments[2], 4, "+", 5);
+            } else {
+                assert!(false, "stmt.expression is not ast::CallExpression")
+            }
+        } else {
+            assert!(false, "stmt is not ast::ExpressionStatement")
         }
     }
 
