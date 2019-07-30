@@ -27,7 +27,7 @@ impl fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
-struct Parser {
+pub struct Parser {
     l: Lexer,
     _cur_token: Option<Token>,
     _peek_token: Option<Token>,
@@ -35,7 +35,7 @@ struct Parser {
 }
 
 impl Parser {
-    fn new(mut l: Lexer) -> Parser {
+    pub fn new(mut l: Lexer) -> Parser {
         let _cur_token = l.next();
         let _peek_token = l.next();
 
@@ -47,7 +47,7 @@ impl Parser {
         }
     }
 
-    fn parse_program(&mut self) -> Program {
+    pub fn parse_program(&mut self) -> Program {
         let mut statements: Vec<Statement> = vec![];
 
         while self._cur_token.is_some() {
@@ -58,6 +58,10 @@ impl Parser {
             self.next_token();
         }
         Program { statements }
+    }
+
+    pub fn errors(&self) -> std::vec::Vec<String> {
+        self.errors.iter().map(|e| format!("{}", e)).collect()
     }
 
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
