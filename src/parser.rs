@@ -77,23 +77,27 @@ impl Parser {
 
         self.expect_peek(&TokenType::Assign);
 
-        // TODO: セミコロンまで読み飛ばしている
-        while !self.cur_token_is(&TokenType::Semicolon) {
+        self.next_token();
+
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(&TokenType::Semicolon) {
             self.next_token();
         }
 
-        Ok(LetStatement { name })
+        Ok(LetStatement { name, value })
     }
 
     fn parse_return_statement(&mut self) -> Result<ReturnStatement, ParseError> {
         self.next_token();
 
-        // TODO: セミコロンまで読み飛ばしている
-        while !self.cur_token_is(&TokenType::Semicolon) {
+        let return_value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(&TokenType::Semicolon) {
             self.next_token();
         }
 
-        Ok(ReturnStatement {})
+        Ok(ReturnStatement { return_value })
     }
 
     fn parse_expression_statement(&mut self) -> Result<ExpressionStatement, ParseError> {
@@ -433,43 +437,55 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let input = r#"
-let x = 5;
-let y = 10;
-let foobar = 838383;
-"#
-        .to_string();
+        test(vec![("let x = 5;", "x", 5)]);
+        test(vec![("let y = true;", "y", true)]);
+        test(vec![("let foobar = y;", "foobar", "y".to_string())]);
 
-        let l = Lexer::new(&input);
-        let mut p = Parser::new(l);
+        fn test<T: AssertWithExpression>(tests: std::vec::Vec<(&str, &str, T)>) {
+            for tt in tests {
+                let input = tt.0.to_string();
+                let expected_identifier = tt.1;
+                let expected_value = tt.2;
 
-        let program = p.parse_program();
-        check_parse_errors(p);
-        assert_eq!(program.statements.len(), 3);
+                let l = Lexer::new(&input);
+                let mut p = Parser::new(l);
+                let program = p.parse_program();
+                check_parse_errors(p);
 
-        let tests = ["x", "y", "foobar"];
+                assert_eq!(program.statements.len(), 1);
+                assert_let_statement(&program.statements[0], expected_identifier);
 
-        for (i, expected) in tests.iter().enumerate() {
-            let stmt = &program.statements[i];
-            assert_let_statement(stmt, expected);
+                if let Statement::LetStatement(stmt) = &program.statements[0] {
+                    assert_literal_expression(&stmt.value, expected_value);
+                }
+            }
         }
     }
 
     #[test]
     fn test_return_statements() {
-        let input = r#"
-return 5;
-return 10;
-return 993322;
-"#
-        .to_string();
+        test(vec![("return 5;", 5)]);
+        test(vec![("return true;", true)]);
+        test(vec![("return foobar", "foobar".to_string())]);
 
-        let l = Lexer::new(&input);
-        let mut p = Parser::new(l);
+        fn test<T: AssertWithExpression>(tests: std::vec::Vec<(&str, T)>) {
+            for tt in tests {
+                let input = tt.0.to_string();
+                let expected_value = tt.1;
 
-        let program = p.parse_program();
-        check_parse_errors(p);
-        assert_eq!(program.statements.len(), 3);
+                let l = Lexer::new(&input);
+                let mut p = Parser::new(l);
+                let program = p.parse_program();
+                check_parse_errors(p);
+
+                assert_eq!(program.statements.len(), 1);
+                if let Statement::ReturnStatement(stmt) = &program.statements[0] {
+                    assert_literal_expression(&stmt.return_value, expected_value)
+                } else {
+                    assert!(false, "stmt not ast::ReturnStatement")
+                }
+            }
+        }
     }
 
     #[test]
@@ -861,14 +877,11 @@ return 993322;
     }
 
     fn assert_let_statement(statement: &Statement, expected: &str) {
-        assert_eq!(
-            statement,
-            &Statement::LetStatement(LetStatement {
-                name: Identifier {
-                    value: expected.to_string()
-                }
-            })
-        );
+        if let Statement::LetStatement(stmt) = statement {
+            assert_eq!(stmt.name.value, expected)
+        } else {
+            assert!(false, "statement not ast::LetStatement")
+        }
     }
 
     fn assert_integer_literal(il: &Expression, value: isize) {

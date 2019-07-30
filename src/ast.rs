@@ -68,23 +68,23 @@ gen_enum!(
 #[derive(Debug, PartialEq)]
 pub struct LetStatement {
     pub name: Identifier,
-    // value: Expression
+    pub value: Expression,
 }
 
 impl fmt::Display for LetStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "let {} = ;", self.name)
+        write!(f, "let {} = {};", self.name, self.value)
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ReturnStatement {
-    // value: Expression
+    pub return_value: Expression,
 }
 
 impl fmt::Display for ReturnStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "return {};", "DUMMY")
+        write!(f, "return {};", self.return_value)
     }
 }
 
@@ -250,13 +250,26 @@ mod tests {
     #[test]
     fn test_string() {
         let program = Program {
-            statements: vec![Statement::LetStatement(LetStatement {
-                name: Identifier {
-                    value: "myVar".to_string(),
-                },
-            })],
+            statements: vec![
+                Statement::LetStatement(LetStatement {
+                    name: Identifier {
+                        value: "myVar".to_string(),
+                    },
+                    value: Expression::Identifier(Identifier {
+                        value: "anotherVar".to_string(),
+                    }),
+                }),
+                Statement::ReturnStatement(ReturnStatement {
+                    return_value: Expression::Identifier(Identifier {
+                        value: "returnVar".to_string(),
+                    }),
+                }),
+            ],
         };
 
-        assert_eq!(format!("{}", program), "let myVar = ;");
+        assert_eq!(
+            format!("{}", program),
+            "let myVar = anotherVar;return returnVar;"
+        );
     }
 }
