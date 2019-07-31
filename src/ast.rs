@@ -1,4 +1,5 @@
 use std::fmt;
+use super::enum_with_fmt;
 
 pub struct Program {
     pub statements: Vec<Statement>,
@@ -11,57 +12,12 @@ impl fmt::Display for Program {
     }
 }
 
-/*
-Enum generation macro
-
-This macro generates below code.
-
-```
-#[derive(Debug,PartialEq)]
-pub enum Statement {
-    LetStatement(LetStatement),
-    ReturnStatement(ReturnStatement),
-    ...
-}
-
-impl fmt::Display for Statement {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Statement::LetStatement(x) => write!(f, "{}", x),
-            Statement::ReturnStatement(x) => write!(f, "{}", x),
-            ...
-        }
-    }
-}
-```
-*/
-macro_rules! gen_enum {
-    ($name:ident; $($var:ident($ty:ty)),+) => {
-        #[derive(Debug,PartialEq)]
-        pub enum $name {
-            $(
-                $var($ty),
-            )*
-        }
-
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                match self {
-                    $(
-                        $name::$var(x) => write!(f, "{}", x),
-                    )+
-                }
-            }
-        }
-    };
-}
-
 // Statement
-gen_enum!(Statement;
+enum_with_fmt!(Statement;
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
     ExpressionStatement(ExpressionStatement),
-    BlockStatement(BlockStatement)
+    BlockStatement(BlockStatement);
 );
 
 #[derive(Debug, PartialEq)]
@@ -110,7 +66,7 @@ impl fmt::Display for BlockStatement {
 }
 
 // Expression
-gen_enum!(Expression;
+enum_with_fmt!(Expression;
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
     PrefixExpression(PrefixExpression),
@@ -118,7 +74,7 @@ gen_enum!(Expression;
     Boolean(Boolean),
     IfExpression(IfExpression),
     FunctionLiteral(FunctionLiteral),
-    CallExpression(CallExpression)
+    CallExpression(CallExpression);
 );
 
 #[derive(Debug, PartialEq)]
