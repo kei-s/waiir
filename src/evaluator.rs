@@ -42,6 +42,7 @@ impl_eval!(Expression, self, {
         Expression::Boolean(exp) => exp.eval(),
         Expression::PrefixExpression(exp) => exp.eval(),
         Expression::InfixExpression(exp) => exp.eval(),
+        Expression::IfExpression(exp) => exp.eval(),
         _ => panic!(),
     }
 });
@@ -103,8 +104,8 @@ fn eval_infix_expression(operator: &String, left: Object, right: Object) -> Obje
     return match operator.as_str() {
         "==" => native_bool_to_boolean_object(left == right),
         "!=" => native_bool_to_boolean_object(left != right),
-        _ => NULL
-    }
+        _ => NULL,
+    };
 }
 
 fn eval_integer_infix_expression(operator: &String, left_val: i64, right_val: i64) -> Object {
@@ -121,12 +122,37 @@ fn eval_integer_infix_expression(operator: &String, left_val: i64, right_val: i6
     }
 }
 
+impl_eval!(IfExpression, self, {
+    let condition = self.condition.eval();
+
+    return if is_truthy(condition) {
+        self.consequence.eval()
+    } else if let Some(alternative) = &self.alternative {
+        alternative.eval()
+    } else {
+        NULL
+    }
+});
+
+impl_eval!(BlockStatement, self, {
+    self.statements.eval()
+});
+
+fn is_truthy(obj: Object) -> bool {
+    match obj {
+        NULL => false,
+        TRUE => true,
+        FALSE => false,
+        _ => true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::lexer::Lexer;
     use super::super::object::*;
     use super::super::parser::Parser;
-    use super::Eval;
+    use super::{Eval, NULL};
 
     #[test]
     fn test_eval_integer_expression() {
@@ -207,6 +233,31 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_if_else_expressions() {
+        let tests = vec![
+            ("if (true) { 10 }", 10),
+            ("if (1) { 10 }", 10),
+            ("if (1 < 2) { 10 }", 10),
+            ("if (1 > 2) { 10 } else { 20 }", 20),
+            ("if (1 < 2) { 10 } else { 20 }", 10),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            assert_integer_object(evaluated, expected);
+        }
+
+        let nil_tests = vec!["if (false) { 10 }", "if (1 > 2) { 10 }"];
+
+        for input in nil_tests {
+            let evaluated = test_eval(&input.to_string());
+            assert_null_object(evaluated);
+        }
+    }
+
     fn test_eval(input: &String) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
@@ -228,5 +279,9 @@ mod tests {
         } else {
             assert!(false, "object is not Boolean")
         }
+    }
+
+    fn assert_null_object(obj: Object) {
+        assert_eq!(obj, NULL);
     }
 }

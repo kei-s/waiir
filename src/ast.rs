@@ -1,5 +1,5 @@
-use std::fmt;
 use super::enum_with_fmt;
+use std::fmt;
 
 pub struct Program {
     pub statements: Vec<Statement>,
@@ -16,8 +16,8 @@ impl fmt::Display for Program {
 enum_with_fmt!(Statement;
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
-    ExpressionStatement(ExpressionStatement),
-    BlockStatement(BlockStatement);
+    ExpressionStatement(ExpressionStatement);
+    // BlockStatement(BlockStatement);
 );
 
 #[derive(Debug, PartialEq, Eq)]
