@@ -1,6 +1,10 @@
 use super::ast::*;
 use super::object::*;
 
+const TRUE: Object = Object::Boolean(true);
+const FALSE: Object = Object::Boolean(false);
+const NULL: Object = Object::Null;
+
 pub trait Eval {
     fn eval(&self) -> Object;
 }
@@ -35,11 +39,22 @@ impl_eval!(Statement, self, {
 impl_eval!(Expression, self, {
     match self {
         Expression::IntegerLiteral(exp) => exp.eval(),
+        Expression::Boolean(exp) => exp.eval(),
         _ => panic!(),
     }
 });
 
 impl_eval!(IntegerLiteral, self, { Object::Integer(self.value) });
+
+impl_eval!(Boolean, self, { native_bool_to_boolean_object(self.value) });
+
+fn native_bool_to_boolean_object(input: bool) -> Object {
+    if input {
+        TRUE
+    } else {
+        FALSE
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -60,6 +75,18 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_eval_boolean_expression() {
+        let tests = vec![("true", true), ("false", false)];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            assert_boolean_object(evaluated, expected);
+        }
+    }
+
     fn test_eval(input: &String) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
@@ -72,6 +99,14 @@ mod tests {
             assert_eq!(result, expected)
         } else {
             assert!(false, "object is not Integer")
+        }
+    }
+
+    fn assert_boolean_object(obj: Object, expected: bool) {
+        if let Object::Boolean(result) = obj {
+            assert_eq!(result, expected)
+        } else {
+            assert!(false, "object is not Boolean")
         }
     }
 }
