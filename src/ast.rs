@@ -136,7 +136,7 @@ impl fmt::Display for Identifier {
 
 #[derive(Debug, PartialEq)]
 pub struct IntegerLiteral {
-    pub value: isize,
+    pub value: i64,
 }
 
 impl fmt::Display for IntegerLiteral {

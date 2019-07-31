@@ -888,7 +888,7 @@ mod tests {
         }
     }
 
-    fn assert_integer_literal(il: &Expression, value: isize) {
+    fn assert_integer_literal(il: &Expression, value: i64) {
         if let Expression::IntegerLiteral(integ) = il {
             assert_eq!(integ.value, value);
             assert_eq!(format!("{}", integ.value), format!("{}", value));
@@ -919,7 +919,7 @@ mod tests {
         fn assert_with(self, exp: &Expression);
     }
 
-    impl AssertWithExpression for isize {
+    impl AssertWithExpression for i64 {
         fn assert_with(self, exp: &Expression) {
             assert_integer_literal(exp, self);
         }
