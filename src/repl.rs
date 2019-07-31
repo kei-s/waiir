@@ -1,3 +1,4 @@
+use super::evaluator::Eval;
 use super::{lexer, parser};
 use std::io;
 use std::io::prelude::*;
@@ -20,7 +21,9 @@ pub fn start() {
             continue;
         }
 
-        println!("{}", program);
+        let evaluated = program.eval();
+
+        println!("{}", evaluated);
     }
 }
 

@@ -1,7 +1,7 @@
 use super::ast::*;
 use super::object::*;
 
-trait Eval {
+pub trait Eval {
     fn eval(&self) -> Object;
 }
 
