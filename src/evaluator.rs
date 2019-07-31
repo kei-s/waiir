@@ -40,6 +40,7 @@ impl_eval!(Expression, self, {
     match self {
         Expression::IntegerLiteral(exp) => exp.eval(),
         Expression::Boolean(exp) => exp.eval(),
+        Expression::PrefixExpression(exp) => exp.eval(),
         _ => panic!(),
     }
 });
@@ -56,6 +57,36 @@ fn native_bool_to_boolean_object(input: bool) -> Object {
     }
 }
 
+impl_eval!(PrefixExpression, self, {
+    let right = self.right.eval();
+    eval_prefix_expression(&self.operator, right)
+});
+
+fn eval_prefix_expression(operator: &String, right: Object) -> Object {
+    match operator.as_str() {
+        "!" => eval_bang_operator_expression(right),
+        "-" => eval_minus_prefix_operator_expression(right),
+        _ => Object::Null,
+    }
+}
+
+fn eval_bang_operator_expression(right: Object) -> Object {
+    match right {
+        TRUE => FALSE,
+        FALSE => TRUE,
+        NULL => TRUE,
+        _ => FALSE,
+    }
+}
+
+fn eval_minus_prefix_operator_expression(right: Object) -> Object {
+    if let Object::Integer(value) = right {
+        Object::Integer(-value)
+    } else {
+        NULL
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::lexer::Lexer;
@@ -65,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_eval_integer_expression() {
-        let tests = vec![("5", 5), ("10", 10)];
+        let tests = vec![("5", 5), ("10", 10), ("-5", -5), ("-10", -10)];
 
         for tt in tests {
             let input = tt.0.to_string();
@@ -78,6 +109,25 @@ mod tests {
     #[test]
     fn test_eval_boolean_expression() {
         let tests = vec![("true", true), ("false", false)];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            assert_boolean_object(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_bang_operator() {
+        let tests = vec![
+            ("!true", false),
+            ("!false", true),
+            ("!5", false),
+            ("!!true", true),
+            ("!!false", false),
+            ("!!5", true),
+        ];
 
         for tt in tests {
             let input = tt.0.to_string();

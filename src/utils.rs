@@ -44,7 +44,7 @@ impl fmt::Display for Object {
 #[macro_export]
 macro_rules! enum_with_fmt {
     ($name:ident; $($var:ident($ty:ty)),+; $($null:ident => $expr:expr),*) => {
-        #[derive(Debug,PartialEq)]
+        #[derive(Debug,PartialEq,Eq)]
         pub enum $name {
             $(
                 $var($ty),
