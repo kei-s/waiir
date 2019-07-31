@@ -36,7 +36,7 @@ impl fmt::Display for Statement {
 ```
 */
 macro_rules! gen_enum {
-    ($name:ident, $($var:ident($ty:ty)),+) => {
+    ($name:ident; $($var:ident($ty:ty)),+) => {
         #[derive(Debug,PartialEq)]
         pub enum $name {
             $(
@@ -57,8 +57,7 @@ macro_rules! gen_enum {
 }
 
 // Statement
-gen_enum!(
-    Statement,
+gen_enum!(Statement;
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
     ExpressionStatement(ExpressionStatement),
@@ -111,8 +110,7 @@ impl fmt::Display for BlockStatement {
 }
 
 // Expression
-gen_enum!(
-    Expression,
+gen_enum!(Expression;
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
     PrefixExpression(PrefixExpression),
