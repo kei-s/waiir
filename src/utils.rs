@@ -22,47 +22,65 @@ impl fmt::Display for Statement {
 }
 ```
 
-And with custom result.
+Additionally, this macro generate custom output.
 
 ```
-#[derive(Debug,PartialEq)]
-pub enum Object {
-    Integer(i64),
-    Null => "null"
-}
-
-impl fmt::Display for Object {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Object::Integer(x) => write!(f, "{}", x),
-            Object::Null(x) => write!(f, "null"),
-        }
-    }
+pub enum E {
+    V1(T),
+    =>
+    V2(T) => "Custom: {}",
+    ;
+    V3,
+    =>
+    V4 => "Custom",
 }
 ```
 */
 #[macro_export]
 macro_rules! enum_with_fmt {
-    ($name:ident; $($var:ident($ty:ty)),+; $($null:ident => $expr:expr),*) => {
-        #[derive(Debug,PartialEq,Eq)]
+    (
+        $(#[$meta: meta])*
+        pub enum $name: ident {
+            $($a_var: ident ($a_ty: ty),)*
+        }
+    ) => {
+        enum_with_fmt!(
+            $(#[$meta])*
+            pub enum $name {
+                $($a_var ($a_ty),)*
+                =>
+                ;
+                =>
+            }
+        );
+    };
+    (
+        $(#[$meta: meta])*
+        pub enum $name: ident {
+            $($a_var: ident ($a_ty: ty),)*
+            =>
+            $($b_var: ident ($b_ty: ty) => $b_expr: expr,)*
+            ;
+            $($c_var: ident)*
+            =>
+            $($d_var: ident => $d_expr: expr,)*
+        }
+    ) => {
+        $(#[$meta])*
         pub enum $name {
-            $(
-                $var($ty),
-            )+
-            $(
-                $null,
-            )*
+            $($a_var($a_ty),)*
+            $($b_var($b_ty),)*
+            $($c_var,)*
+            $($d_var,)*
         }
 
         impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
-                    $(
-                        $name::$var(x) => write!(f, "{}", x),
-                    )+
-                    $(
-                        $name::$null => write!(f, $expr),
-                    )*
+                    $($name::$a_var(x) => write!(f, "{}", x),)*
+                    $($name::$b_var(x) => write!(f, $b_expr, x),)*
+                    $($name::$c_var => write!(f, "{}", x),)*
+                    $($name::$d_var => write!(f, $d_expr),)*
                 }
             }
         }

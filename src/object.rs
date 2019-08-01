@@ -1,10 +1,14 @@
 use super::enum_with_fmt;
 use std::fmt;
 
-enum_with_fmt!(Object;
-    Integer(i64),
-    Boolean(bool),
-    ReturnValue(Box<Object>)
-    ;
-    Null => "null"
+enum_with_fmt!(
+    #[derive(Debug,PartialEq,Eq)]
+    pub enum Object {
+        Integer(i64),
+        Boolean(bool),
+        ReturnValue(Box<Object>),
+        => // custom format
+        ;=> // without data and custom format
+        Null => "null",
+    }
 );

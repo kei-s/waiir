@@ -13,11 +13,13 @@ impl fmt::Display for Program {
 }
 
 // Statement
-enum_with_fmt!(Statement;
-    LetStatement(LetStatement),
-    ReturnStatement(ReturnStatement),
-    ExpressionStatement(ExpressionStatement);
-    // BlockStatement(BlockStatement);
+enum_with_fmt!(
+    #[derive(Debug,PartialEq,Eq)]
+    pub enum Statement {
+        LetStatement(LetStatement),
+        ReturnStatement(ReturnStatement),
+        ExpressionStatement(ExpressionStatement),
+    }
 );
 
 #[derive(Debug, PartialEq, Eq)]
@@ -66,15 +68,18 @@ impl fmt::Display for BlockStatement {
 }
 
 // Expression
-enum_with_fmt!(Expression;
-    Identifier(Identifier),
-    IntegerLiteral(IntegerLiteral),
-    PrefixExpression(PrefixExpression),
-    InfixExpression(InfixExpression),
-    Boolean(Boolean),
-    IfExpression(IfExpression),
-    FunctionLiteral(FunctionLiteral),
-    CallExpression(CallExpression);
+enum_with_fmt!(
+    #[derive(Debug,PartialEq,Eq)]
+    pub enum Expression {
+        Identifier(Identifier),
+        IntegerLiteral(IntegerLiteral),
+        PrefixExpression(PrefixExpression),
+        InfixExpression(InfixExpression),
+        Boolean(Boolean),
+        IfExpression(IfExpression),
+        FunctionLiteral(FunctionLiteral),
+        CallExpression(CallExpression),
+    }
 );
 
 #[derive(Debug, PartialEq, Eq)]
