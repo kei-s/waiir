@@ -19,12 +19,26 @@ macro_rules! impl_eval {
     };
 }
 
-impl_eval!(Program, self, { self.statements.eval() });
+impl_eval!(Program, self, {
+    let mut result = NULL;
+    for statement in &self.statements {
+        result = statement.eval();
+
+        if let Object::ReturnValue(return_value) = result {
+            return *return_value;
+        }
+    }
+    result
+});
 
 impl_eval!(Vec<Statement>, self, {
-    let mut result = Object::Null;
+    let mut result = NULL;
     for stmt in self {
         result = stmt.eval();
+
+        if let Object::ReturnValue(return_value) = result {
+            return *return_value;
+        }
     }
     result
 });
@@ -32,6 +46,7 @@ impl_eval!(Vec<Statement>, self, {
 impl_eval!(Statement, self, {
     match self {
         Statement::ExpressionStatement(stmt) => stmt.expression.eval(),
+        Statement::ReturnStatement(stmt) => Object::ReturnValue(Box::new(stmt.return_value.eval())),
         _ => panic!(),
     }
 });
@@ -68,7 +83,7 @@ fn eval_prefix_expression(operator: &String, right: Object) -> Object {
     match operator.as_str() {
         "!" => eval_bang_operator_expression(right),
         "-" => eval_minus_prefix_operator_expression(right),
-        _ => Object::Null,
+        _ => NULL,
     }
 }
 
@@ -131,11 +146,18 @@ impl_eval!(IfExpression, self, {
         alternative.eval()
     } else {
         NULL
-    }
+    };
 });
 
 impl_eval!(BlockStatement, self, {
-    self.statements.eval()
+    let mut result = NULL;
+    for statement in &self.statements {
+        result = statement.eval();
+        if let Object::ReturnValue(_) = result {
+            return result;
+        }
+    }
+    result
 });
 
 fn is_truthy(obj: Object) -> bool {
@@ -143,7 +165,7 @@ fn is_truthy(obj: Object) -> bool {
         NULL => false,
         TRUE => true,
         FALSE => false,
-        _ => true
+        _ => true,
     }
 }
 
@@ -255,6 +277,34 @@ mod tests {
         for input in nil_tests {
             let evaluated = test_eval(&input.to_string());
             assert_null_object(evaluated);
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let tests = vec![
+            ("return 10;", 10),
+            ("return 10; 9;", 10),
+            ("return 2 * 5; 9;", 10),
+            ("(; return 2 * 5; 9;", 10),
+            (
+                r#"
+            if (10 > 1) {
+                if (10 > 1) {
+                    return 10;
+                }
+                return 1;
+            }
+            "#,
+                10,
+            ),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            assert_integer_object(evaluated, expected);
         }
     }
 

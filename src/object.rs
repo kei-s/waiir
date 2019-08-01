@@ -3,7 +3,8 @@ use std::fmt;
 
 enum_with_fmt!(Object;
     Integer(i64),
-    Boolean(bool)
+    Boolean(bool),
+    ReturnValue(Box<Object>)
     ;
     Null => "null"
 );
