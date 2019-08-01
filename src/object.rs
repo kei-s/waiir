@@ -8,6 +8,7 @@ enum_with_fmt!(
         Boolean(bool),
         ReturnValue(Box<Object>),
         => // custom format
+        Error(String) => "Error: {}",
         ;=> // without data and custom format
         Null => "null",
     }

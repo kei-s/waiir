@@ -24,8 +24,10 @@ impl_eval!(Program, self, {
     for statement in &self.statements {
         result = statement.eval();
 
-        if let Object::ReturnValue(return_value) = result {
-            return *return_value;
+        match result {
+            Object::ReturnValue(return_value) => return *return_value,
+            Object::Error(_) => return result,
+            _ => (),
         }
     }
     result
@@ -46,7 +48,13 @@ impl_eval!(Vec<Statement>, self, {
 impl_eval!(Statement, self, {
     match self {
         Statement::ExpressionStatement(stmt) => stmt.expression.eval(),
-        Statement::ReturnStatement(stmt) => Object::ReturnValue(Box::new(stmt.return_value.eval())),
+        Statement::ReturnStatement(stmt) => {
+            let val = stmt.return_value.eval();
+            if is_error(&val) {
+                return val;
+            }
+            Object::ReturnValue(Box::new(val))
+        }
         _ => panic!(),
     }
 });
@@ -76,6 +84,9 @@ fn native_bool_to_boolean_object(input: bool) -> Object {
 
 impl_eval!(PrefixExpression, self, {
     let right = self.right.eval();
+    if is_error(&right) {
+        return right;
+    }
     eval_prefix_expression(&self.operator, right)
 });
 
@@ -83,7 +94,7 @@ fn eval_prefix_expression(operator: &String, right: Object) -> Object {
     match operator.as_str() {
         "!" => eval_bang_operator_expression(right),
         "-" => eval_minus_prefix_operator_expression(right),
-        _ => NULL,
+        _ => new_error(format!("unknown operator: {}{:?}", operator, right)),
     }
 }
 
@@ -100,27 +111,42 @@ fn eval_minus_prefix_operator_expression(right: Object) -> Object {
     if let Object::Integer(value) = right {
         Object::Integer(-value)
     } else {
-        NULL
+        new_error(format!("unknown operator: -{:?}", right))
     }
 }
 
 impl_eval!(InfixExpression, self, {
     let left = self.left.eval();
+    if is_error(&left) {
+        return left;
+    }
     let right = self.right.eval();
+    if is_error(&right) {
+        return right;
+    }
     eval_infix_expression(&self.operator, left, right)
 });
 
 fn eval_infix_expression(operator: &String, left: Object, right: Object) -> Object {
+    if operator.as_str() == "==" {
+        return native_bool_to_boolean_object(left == right);
+    }
+    if operator.as_str() == "!=" {
+        return native_bool_to_boolean_object(left != right);
+    }
     if let Object::Integer(l) = left {
         if let Object::Integer(r) = right {
             return eval_integer_infix_expression(operator, l, r);
         }
+        return new_error(format!(
+            "type mismatch: {:?} {} {:?}",
+            left, operator, right
+        ));
     }
-    return match operator.as_str() {
-        "==" => native_bool_to_boolean_object(left == right),
-        "!=" => native_bool_to_boolean_object(left != right),
-        _ => NULL,
-    };
+    return new_error(format!(
+        "unknown operator: {:?} {} {:?}",
+        left, operator, right
+    ));
 }
 
 fn eval_integer_infix_expression(operator: &String, left_val: i64, right_val: i64) -> Object {
@@ -133,12 +159,18 @@ fn eval_integer_infix_expression(operator: &String, left_val: i64, right_val: i6
         ">" => native_bool_to_boolean_object(left_val > right_val),
         "==" => native_bool_to_boolean_object(left_val == right_val),
         "!=" => native_bool_to_boolean_object(left_val != right_val),
-        _ => NULL,
+        _ => new_error(format!(
+            "unknown operator: {:?} {} {:?}",
+            left_val, operator, right_val
+        )),
     }
 }
 
 impl_eval!(IfExpression, self, {
     let condition = self.condition.eval();
+    if is_error(&condition) {
+        return condition;
+    }
 
     return if is_truthy(condition) {
         self.consequence.eval()
@@ -153,8 +185,11 @@ impl_eval!(BlockStatement, self, {
     let mut result = NULL;
     for statement in &self.statements {
         result = statement.eval();
-        if let Object::ReturnValue(_) = result {
-            return result;
+
+        match result {
+            Object::ReturnValue(_) => return result,
+            Object::Error(_) => return result,
+            _ => (),
         }
     }
     result
@@ -166,6 +201,18 @@ fn is_truthy(obj: Object) -> bool {
         TRUE => true,
         FALSE => false,
         _ => true,
+    }
+}
+
+fn new_error(message: String) -> Object {
+    Object::Error(message)
+}
+
+fn is_error(obj: &Object) -> bool {
+    if let Object::Error(_) = obj {
+        true
+    } else {
+        false
     }
 }
 
@@ -305,6 +352,49 @@ mod tests {
             let expected = tt.1;
             let evaluated = test_eval(&input);
             assert_integer_object(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests = vec![
+            ("5 + true;", "type mismatch: Integer(5) + Boolean(true)"),
+            ("5 + true; 5;", "type mismatch: Integer(5) + Boolean(true)"),
+            ("-true", "unknown operator: -Boolean(true)"),
+            (
+                "true + false;",
+                "unknown operator: Boolean(true) + Boolean(false)",
+            ),
+            (
+                "5; true + false; 5",
+                "unknown operator: Boolean(true) + Boolean(false)",
+            ),
+            (
+                "if (10 > 1) { true + false; }",
+                "unknown operator: Boolean(true) + Boolean(false)",
+            ),
+            (
+                r#"
+            if (10 > 1) {
+                if (10 > 1) {
+                    return true + false;
+                }
+            }
+            "#,
+                "unknown operator: Boolean(true) + Boolean(false)",
+            ),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+
+            if let Object::Error(message) = evaluated {
+                assert_eq!(message, expected)
+            } else {
+                assert!(false, "no error object returned.")
+            }
         }
     }
 
