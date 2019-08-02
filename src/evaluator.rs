@@ -6,18 +6,32 @@ const TRUE: Object = Object::Boolean(true);
 const FALSE: Object = Object::Boolean(false);
 const NULL: Object = Object::Null;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Environment {
     store: HashMap<String, Object>,
+    outer: Option<Box<Environment>>,
 }
 
 impl Environment {
     pub fn new() -> Environment {
         let store = HashMap::new();
-        Environment { store }
+        Environment { store, outer: None }
+    }
+
+    pub fn new_enclosed(outer: Environment) -> Environment {
+        let store = HashMap::new();
+        Environment {
+            store,
+            outer: Some(Box::new(outer)),
+        }
     }
 
     fn get(&self, name: &String) -> Option<Object> {
-        self.store.get(name).map(|o| o.clone())
+        if let Some(o) = self.store.get(name) {
+            Some(o.clone())
+        } else {
+            self.outer.as_ref().and_then(|outer| outer.get(name))
+        }
     }
 
     fn set(&mut self, name: &String, val: &Object) {
@@ -94,7 +108,8 @@ impl_eval!(Expression, self, env, {
         Expression::InfixExpression(exp) => exp.eval(env),
         Expression::IfExpression(exp) => exp.eval(env),
         Expression::Identifier(exp) => exp.eval(env),
-        _ => panic!(),
+        Expression::FunctionLiteral(exp) => exp.eval(env),
+        Expression::CallExpression(exp) => exp.eval(env),
     }
 });
 
@@ -231,6 +246,55 @@ impl_eval!(Identifier, self, env, {
     }
     new_error(format!("identifier not found: {}", self.value))
 });
+
+impl_eval!(FunctionLiteral, self, env, {
+    Object::Function(Function {
+        parameters: self.parameters.clone(),
+        body: *self.body.clone(),
+        env: env.clone(),
+    })
+});
+
+impl_eval!(CallExpression, self, env, {
+    let function = self.function.eval(env);
+    if is_error(&function) {
+        return function;
+    }
+    let mut args: Vec<Object> = vec![];
+    for argument in &self.arguments {
+        let evaluated = argument.eval(env);
+        if is_error(&evaluated) {
+            return evaluated;
+        }
+        args.push(evaluated);
+    }
+    apply_function(function, args)
+});
+
+fn apply_function(func: Object, args: Vec<Object>) -> Object {
+    if let Object::Function(function) = func {
+        let mut extended_env = extended_function_env(&function, args);
+        let evaluated = function.body.eval(&mut extended_env);
+        unwrap_return_value(evaluated)
+    } else {
+        new_error(format!("not a function: {:?}", func))
+    }
+}
+
+fn extended_function_env(function: &Function, args: Vec<Object>) -> Environment {
+    let mut env = Environment::new_enclosed(function.env.clone());
+    for (i, param) in function.parameters.iter().enumerate() {
+        env.set(&param.value, &args[i]);
+    }
+    env
+}
+
+fn unwrap_return_value(obj: Object) -> Object {
+    if let Object::ReturnValue(return_value) = obj {
+        return *return_value;
+    }
+    obj
+}
 
 fn is_truthy(obj: Object) -> bool {
     match obj {
@@ -373,14 +437,35 @@ mod tests {
             ("(; return 2 * 5; 9;", 10),
             (
                 r#"
-            if (10 > 1) {
                 if (10 > 1) {
-                    return 10;
+                    if (10 > 1) {
+                        return 10;
+                    }
+                    return 1;
                 }
-                return 1;
-            }
-            "#,
+                "#,
                 10,
+            ),
+            (
+                r#"
+                let f = fn(x) {
+                    return x;
+                    x + 10;
+                };
+                f(10);
+                "#,
+                10,
+            ),
+            (
+                r#"
+                let f = fn(x) {
+                    let result = x + 10;
+                    return result;
+                    return 10;
+                };
+                f(10);
+                "#,
+                20,
             ),
         ];
 
@@ -412,12 +497,12 @@ mod tests {
             ),
             (
                 r#"
-            if (10 > 1) {
                 if (10 > 1) {
-                    return true + false;
+                    if (10 > 1) {
+                        return true + false;
+                    }
                 }
-            }
-            "#,
+                "#,
                 "unknown operator: Boolean(true) + Boolean(false)",
             ),
             ("foobar", "identifier not found: foobar"),
@@ -450,6 +535,49 @@ mod tests {
             let expected = tt.1;
             assert_integer_object(test_eval(&input), expected);
         }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let input = "fn(x) { x + 2; }".to_string();
+
+        let evaluated = test_eval(&input);
+        if let Object::Function(func) = &evaluated {
+            assert_eq!(func.parameters.len(), 1);
+            assert_eq!(format!("{}", func.parameters[0]), "x");
+            assert_eq!(format!("{}", func.body), "(x + 2)");
+        } else {
+            assert!(false, "object is not Function.")
+        }
+    }
+
+    #[test]
+    fn test_function_application() {
+        let tests = vec![
+            ("let identity = fn(x) { x; }; identity(5);", 5),
+            ("let identity = fn(x) { return x; }; identity(5);", 5),
+            ("let double = fn(x) { x * 2; }; double(5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            ("fn(x) { x; }(5)", 5),
+        ];
+
+        for tt in tests {
+            assert_integer_object(test_eval(&tt.0.to_string()), tt.1);
+        }
+    }
+
+    #[test]
+    fn test_closures() {
+        let input = r#"
+            let newAdder = fn(x) {
+                fn(y) { x + y };
+            };
+            let addTwo = newAdder(2);
+            addTwo(2);
+        "#
+        .to_string();
+        assert_integer_object(test_eval(&input), 4);
     }
 
     fn test_eval(input: &String) -> Object {

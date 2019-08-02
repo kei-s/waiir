@@ -14,7 +14,7 @@ impl fmt::Display for Program {
 
 // Statement
 enum_with_fmt!(
-    #[derive(Debug,PartialEq,Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum Statement {
         LetStatement(LetStatement),
         ReturnStatement(ReturnStatement),
@@ -22,7 +22,7 @@ enum_with_fmt!(
     }
 );
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LetStatement {
     pub name: Identifier,
     pub value: Expression,
@@ -34,7 +34,7 @@ impl fmt::Display for LetStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReturnStatement {
     pub return_value: Expression,
 }
@@ -45,7 +45,7 @@ impl fmt::Display for ReturnStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpressionStatement {
     pub expression: Expression,
 }
@@ -56,7 +56,7 @@ impl fmt::Display for ExpressionStatement {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockStatement {
     pub statements: Vec<Statement>,
 }
@@ -69,7 +69,7 @@ impl fmt::Display for BlockStatement {
 
 // Expression
 enum_with_fmt!(
-    #[derive(Debug,PartialEq,Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum Expression {
         Identifier(Identifier),
         IntegerLiteral(IntegerLiteral),
@@ -82,7 +82,7 @@ enum_with_fmt!(
     }
 );
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Identifier {
     pub value: String,
 }
@@ -93,7 +93,7 @@ impl fmt::Display for Identifier {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IntegerLiteral {
     pub value: i64,
 }
@@ -104,7 +104,7 @@ impl fmt::Display for IntegerLiteral {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrefixExpression {
     pub operator: String,
     pub right: Box<Expression>,
@@ -116,7 +116,7 @@ impl fmt::Display for PrefixExpression {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InfixExpression {
     pub left: Box<Expression>,
     pub operator: String,
@@ -129,7 +129,7 @@ impl fmt::Display for InfixExpression {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Boolean {
     pub value: bool,
 }
@@ -140,7 +140,7 @@ impl fmt::Display for Boolean {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IfExpression {
     pub condition: Box<Expression>,
     pub consequence: Box<BlockStatement>,
@@ -161,7 +161,7 @@ impl fmt::Display for IfExpression {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionLiteral {
     pub parameters: Vec<Identifier>,
     pub body: Box<BlockStatement>,
@@ -182,7 +182,7 @@ impl fmt::Display for FunctionLiteral {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallExpression {
     pub function: Box<Expression>,
     pub arguments: Vec<Expression>,
