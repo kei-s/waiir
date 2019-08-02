@@ -1,10 +1,11 @@
-use super::evaluator::Eval;
+use super::evaluator::{Eval, Environment};
 use super::{lexer, parser};
 use std::io;
 use std::io::prelude::*;
 
 pub fn start() {
     const PROMPT: &str = ">> ";
+    let mut env = Environment::new();
     loop {
         print!("{}", PROMPT);
         io::stdout().flush().unwrap();
@@ -21,7 +22,7 @@ pub fn start() {
             continue;
         }
 
-        let evaluated = program.eval();
+        let evaluated = program.eval(&mut env);
 
         println!("{}", evaluated);
     }

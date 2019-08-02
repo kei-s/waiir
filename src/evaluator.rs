@@ -1,28 +1,48 @@
 use super::ast::*;
 use super::object::*;
+use std::collections::HashMap;
 
 const TRUE: Object = Object::Boolean(true);
 const FALSE: Object = Object::Boolean(false);
 const NULL: Object = Object::Null;
 
+pub struct Environment {
+    store: HashMap<String, Object>,
+}
+
+impl Environment {
+    pub fn new() -> Environment {
+        let store = HashMap::new();
+        Environment { store }
+    }
+
+    fn get(&self, name: &String) -> Option<Object> {
+        self.store.get(name).map(|o| o.clone())
+    }
+
+    fn set(&mut self, name: &String, val: &Object) {
+        self.store.insert(name.clone(), val.clone());
+    }
+}
+
 pub trait Eval {
-    fn eval(&self) -> Object;
+    fn eval(&self, env: &mut Environment) -> Object;
 }
 
 macro_rules! impl_eval {
-    ($ty:ty, $self:ident, $block:block) => {
+    ($ty:ty, $self:ident, $env:ident, $block:block) => {
         impl Eval for $ty {
-            fn eval(&$self) -> Object {
+            fn eval(&$self, $env: &mut Environment) -> Object {
                 $block
             }
         }
     };
 }
 
-impl_eval!(Program, self, {
+impl_eval!(Program, self, env, {
     let mut result = NULL;
     for statement in &self.statements {
-        result = statement.eval();
+        result = statement.eval(env);
 
         match result {
             Object::ReturnValue(return_value) => return *return_value,
@@ -33,10 +53,10 @@ impl_eval!(Program, self, {
     result
 });
 
-impl_eval!(Vec<Statement>, self, {
+impl_eval!(Vec<Statement>, self, env, {
     let mut result = NULL;
     for stmt in self {
-        result = stmt.eval();
+        result = stmt.eval(env);
 
         if let Object::ReturnValue(return_value) = result {
             return *return_value;
@@ -45,34 +65,44 @@ impl_eval!(Vec<Statement>, self, {
     result
 });
 
-impl_eval!(Statement, self, {
+impl_eval!(Statement, self, env, {
     match self {
-        Statement::ExpressionStatement(stmt) => stmt.expression.eval(),
+        Statement::ExpressionStatement(stmt) => stmt.expression.eval(env),
         Statement::ReturnStatement(stmt) => {
-            let val = stmt.return_value.eval();
+            let val = stmt.return_value.eval(env);
             if is_error(&val) {
                 return val;
             }
             Object::ReturnValue(Box::new(val))
         }
-        _ => panic!(),
+        Statement::LetStatement(stmt) => {
+            let val = stmt.value.eval(env);
+            if is_error(&val) {
+                return val;
+            }
+            env.set(&stmt.name.value, &val);
+            val
+        }
     }
 });
 
-impl_eval!(Expression, self, {
+impl_eval!(Expression, self, env, {
     match self {
-        Expression::IntegerLiteral(exp) => exp.eval(),
-        Expression::Boolean(exp) => exp.eval(),
-        Expression::PrefixExpression(exp) => exp.eval(),
-        Expression::InfixExpression(exp) => exp.eval(),
-        Expression::IfExpression(exp) => exp.eval(),
+        Expression::IntegerLiteral(exp) => exp.eval(env),
+        Expression::Boolean(exp) => exp.eval(env),
+        Expression::PrefixExpression(exp) => exp.eval(env),
+        Expression::InfixExpression(exp) => exp.eval(env),
+        Expression::IfExpression(exp) => exp.eval(env),
+        Expression::Identifier(exp) => exp.eval(env),
         _ => panic!(),
     }
 });
 
-impl_eval!(IntegerLiteral, self, { Object::Integer(self.value) });
+impl_eval!(IntegerLiteral, self, _env, { Object::Integer(self.value) });
 
-impl_eval!(Boolean, self, { native_bool_to_boolean_object(self.value) });
+impl_eval!(Boolean, self, _env, {
+    native_bool_to_boolean_object(self.value)
+});
 
 fn native_bool_to_boolean_object(input: bool) -> Object {
     if input {
@@ -82,8 +112,8 @@ fn native_bool_to_boolean_object(input: bool) -> Object {
     }
 }
 
-impl_eval!(PrefixExpression, self, {
-    let right = self.right.eval();
+impl_eval!(PrefixExpression, self, env, {
+    let right = self.right.eval(env);
     if is_error(&right) {
         return right;
     }
@@ -115,12 +145,12 @@ fn eval_minus_prefix_operator_expression(right: Object) -> Object {
     }
 }
 
-impl_eval!(InfixExpression, self, {
-    let left = self.left.eval();
+impl_eval!(InfixExpression, self, env, {
+    let left = self.left.eval(env);
     if is_error(&left) {
         return left;
     }
-    let right = self.right.eval();
+    let right = self.right.eval(env);
     if is_error(&right) {
         return right;
     }
@@ -166,25 +196,25 @@ fn eval_integer_infix_expression(operator: &String, left_val: i64, right_val: i6
     }
 }
 
-impl_eval!(IfExpression, self, {
-    let condition = self.condition.eval();
+impl_eval!(IfExpression, self, env, {
+    let condition = self.condition.eval(env);
     if is_error(&condition) {
         return condition;
     }
 
     return if is_truthy(condition) {
-        self.consequence.eval()
+        self.consequence.eval(env)
     } else if let Some(alternative) = &self.alternative {
-        alternative.eval()
+        alternative.eval(env)
     } else {
         NULL
     };
 });
 
-impl_eval!(BlockStatement, self, {
+impl_eval!(BlockStatement, self, env, {
     let mut result = NULL;
     for statement in &self.statements {
-        result = statement.eval();
+        result = statement.eval(env);
 
         match result {
             Object::ReturnValue(_) => return result,
@@ -193,6 +223,13 @@ impl_eval!(BlockStatement, self, {
         }
     }
     result
+});
+
+impl_eval!(Identifier, self, env, {
+    if let Some(val) = env.get(&self.value) {
+        return val;
+    }
+    new_error(format!("identifier not found: {}", self.value))
 });
 
 fn is_truthy(obj: Object) -> bool {
@@ -221,7 +258,7 @@ mod tests {
     use super::super::lexer::Lexer;
     use super::super::object::*;
     use super::super::parser::Parser;
-    use super::{Eval, NULL};
+    use super::{Environment, Eval, NULL};
 
     #[test]
     fn test_eval_integer_expression() {
@@ -383,6 +420,7 @@ mod tests {
             "#,
                 "unknown operator: Boolean(true) + Boolean(false)",
             ),
+            ("foobar", "identifier not found: foobar"),
         ];
 
         for tt in tests {
@@ -398,11 +436,28 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_let_statements() {
+        let tests = vec![
+            ("let a = 5; a;", 5),
+            ("let a = 5 * 5; a;", 25),
+            ("let a = 5; let b = a; b;", 5),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            assert_integer_object(test_eval(&input), expected);
+        }
+    }
+
     fn test_eval(input: &String) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
-        program.eval()
+        let mut env = Environment::new();
+        program.eval(&mut env)
     }
 
     fn assert_integer_object(obj: Object, expected: i64) {

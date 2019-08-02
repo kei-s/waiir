@@ -2,7 +2,7 @@ use super::enum_with_fmt;
 use std::fmt;
 
 enum_with_fmt!(
-    #[derive(Debug,PartialEq,Eq)]
+    #[derive(Debug,Clone,PartialEq,Eq)]
     pub enum Object {
         Integer(i64),
         Boolean(bool),
