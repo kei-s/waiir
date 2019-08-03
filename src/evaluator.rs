@@ -44,7 +44,7 @@ pub trait Eval {
 }
 
 macro_rules! impl_eval {
-    ($ty:ty, $self:ident, $env:ident, $block:block) => {
+    ($ty:ty => ($self:ident, $env:ident) $block:block) => {
         impl Eval for $ty {
             fn eval(&$self, $env: &mut Environment) -> Object {
                 $block
@@ -53,7 +53,7 @@ macro_rules! impl_eval {
     };
 }
 
-impl_eval!(Program, self, env, {
+impl_eval!(Program => (self, env) {
     let mut result = NULL;
     for statement in &self.statements {
         result = statement.eval(env);
@@ -67,7 +67,7 @@ impl_eval!(Program, self, env, {
     result
 });
 
-impl_eval!(Vec<Statement>, self, env, {
+impl_eval!(Vec<Statement> => (self, env) {
     let mut result = NULL;
     for stmt in self {
         result = stmt.eval(env);
@@ -79,7 +79,7 @@ impl_eval!(Vec<Statement>, self, env, {
     result
 });
 
-impl_eval!(Statement, self, env, {
+impl_eval!(Statement => (self, env) {
     match self {
         Statement::ExpressionStatement(stmt) => stmt.expression.eval(env),
         Statement::ReturnStatement(stmt) => {
@@ -100,7 +100,7 @@ impl_eval!(Statement, self, env, {
     }
 });
 
-impl_eval!(Expression, self, env, {
+impl_eval!(Expression => (self, env) {
     match self {
         Expression::IntegerLiteral(exp) => exp.eval(env),
         Expression::Boolean(exp) => exp.eval(env),
@@ -113,9 +113,9 @@ impl_eval!(Expression, self, env, {
     }
 });
 
-impl_eval!(IntegerLiteral, self, _env, { Object::Integer(self.value) });
+impl_eval!(IntegerLiteral => (self, _env) { Object::Integer(self.value) });
 
-impl_eval!(Boolean, self, _env, {
+impl_eval!(Boolean => (self, _env) {
     native_bool_to_boolean_object(self.value)
 });
 
@@ -127,7 +127,7 @@ fn native_bool_to_boolean_object(input: bool) -> Object {
     }
 }
 
-impl_eval!(PrefixExpression, self, env, {
+impl_eval!(PrefixExpression => (self, env) {
     let right = self.right.eval(env);
     if is_error(&right) {
         return right;
@@ -160,7 +160,7 @@ fn eval_minus_prefix_operator_expression(right: Object) -> Object {
     }
 }
 
-impl_eval!(InfixExpression, self, env, {
+impl_eval!(InfixExpression => (self, env) {
     let left = self.left.eval(env);
     if is_error(&left) {
         return left;
@@ -211,7 +211,7 @@ fn eval_integer_infix_expression(operator: &String, left_val: i64, right_val: i6
     }
 }
 
-impl_eval!(IfExpression, self, env, {
+impl_eval!(IfExpression => (self, env) {
     let condition = self.condition.eval(env);
     if is_error(&condition) {
         return condition;
@@ -226,7 +226,7 @@ impl_eval!(IfExpression, self, env, {
     };
 });
 
-impl_eval!(BlockStatement, self, env, {
+impl_eval!(BlockStatement => (self, env) {
     let mut result = NULL;
     for statement in &self.statements {
         result = statement.eval(env);
@@ -240,14 +240,14 @@ impl_eval!(BlockStatement, self, env, {
     result
 });
 
-impl_eval!(Identifier, self, env, {
+impl_eval!(Identifier => (self, env) {
     if let Some(val) = env.get(&self.value) {
         return val;
     }
     new_error(format!("identifier not found: {}", self.value))
 });
 
-impl_eval!(FunctionLiteral, self, env, {
+impl_eval!(FunctionLiteral => (self, env) {
     Object::Function(Function {
         parameters: self.parameters.clone(),
         body: *self.body.clone(),
@@ -255,7 +255,7 @@ impl_eval!(FunctionLiteral, self, env, {
     })
 });
 
-impl_eval!(CallExpression, self, env, {
+impl_eval!(CallExpression => (self, env) {
     let function = self.function.eval(env);
     if is_error(&function) {
         return function;
