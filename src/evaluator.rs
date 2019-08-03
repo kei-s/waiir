@@ -580,6 +580,28 @@ mod tests {
         assert_integer_object(test_eval(&input), 4);
     }
 
+    #[test]
+    fn test_recursive() {
+        let input = r#"
+            let factorial = fn(n) {
+                if (n == 0) {
+                    1;
+                } else {
+                    n * factorial(n - 1);
+                }
+            };
+            factorial(5);
+        "#
+        .to_string();
+
+        let evaluated = test_eval(&input);
+        if let Object::Error(message) = evaluated {
+            assert!(false, message);
+        } else {
+            assert_integer_object(test_eval(&input), 120);
+        }
+    }
+
     fn test_eval(input: &String) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
