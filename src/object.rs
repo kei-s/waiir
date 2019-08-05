@@ -12,6 +12,7 @@ enum_with_fmt!(
         Boolean(bool),
         ReturnValue(Box<Object>),
         Function(Function),
+        Builtin(Builtin),
         => // custom format
         String(String) => "\"{}\"",
         Error(String) => "Error: {}",
@@ -39,5 +40,16 @@ impl fmt::Display for Function {
                 .join(", "),
             self.body
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Builtin {
+    pub func: fn(Vec<Object>) -> Object,
+}
+
+impl fmt::Display for Builtin {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "builtin function")
     }
 }

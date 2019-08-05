@@ -260,7 +260,10 @@ impl_eval!(Identifier => (self, env) {
     if let Some(val) = env.borrow().get(&self.value) {
         return val;
     }
-    new_error(format!("identifier not found: {}", self.value))
+    match self.value.as_str() {
+        "len" => Object::Builtin(Builtin{func: builtin::len}),
+        _ => new_error(format!("identifier not found: {}", self.value))
+    }
 });
 
 impl_eval!(FunctionLiteral => (self, env) {
@@ -288,15 +291,20 @@ impl_eval!(CallExpression => (self, env) {
 });
 
 fn apply_function(func: Object, args: Vec<Object>) -> Object {
-    if let Object::Function(function) = func {
-        let mut extended_env = Environment::new_enclosed(function.env);
-        for (i, param) in function.parameters.iter().enumerate() {
-            extended_env.borrow_mut().set(&param.value, &args[i]);
+    match func {
+        Object::Function(function) => {
+            let mut extended_env = Environment::new_enclosed(function.env);
+            for (i, param) in function.parameters.iter().enumerate() {
+                extended_env.borrow_mut().set(&param.value, &args[i]);
+            }
+            let evaluated = function.body.eval(&mut extended_env);
+            unwrap_return_value(evaluated)
         }
-        let evaluated = function.body.eval(&mut extended_env);
-        unwrap_return_value(evaluated)
-    } else {
-        new_error(format!("not a function: {:?}", func))
+        Object::Builtin(builtin) => {
+            let builtin_function = builtin.func;
+            builtin_function(args)
+        }
+        _ => new_error(format!("not a function: {:?}", func)),
     }
 }
 
@@ -339,6 +347,28 @@ fn is_error(obj: &Object) -> bool {
         true
     } else {
         false
+    }
+}
+
+mod builtin {
+    use super::new_error;
+    use super::Object;
+
+    pub fn len(args: Vec<Object>) -> Object {
+        if args.len() != 1 {
+            return new_error(format!(
+                "wrong number of arguments. got={}, want=1",
+                args.len()
+            ));
+        }
+        if let Object::String(string) = &args[0] {
+            Object::Integer(string.len() as i64)
+        } else {
+            new_error(format!(
+                "argument to `len` not supported, got {:?}",
+                args[0]
+            ))
+        }
     }
 }
 
@@ -650,6 +680,41 @@ mod tests {
             assert_eq!(string, "Hello World!")
         } else {
             assert!(false, "object is not String")
+        }
+    }
+
+    #[test]
+    fn test_builtin_functions() {
+        let tests = vec![
+            ("len(\"\")", 0),
+            ("len(\"four\")", 4),
+            ("len(\"hello world\")", 11),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            assert_integer_object(evaluated, expected);
+        }
+
+        let error_tests = vec![
+            ("len(1)", "argument to `len` not supported, got Integer(1)"),
+            (
+                "len(\"one\", \"two\")",
+                "wrong number of arguments. got=2, want=1",
+            ),
+        ];
+
+        for tt in error_tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            if let Object::Error(message) = evaluated {
+                assert_eq!(message, expected)
+            } else {
+                assert!(false, "object is not Error")
+            }
         }
     }
 
