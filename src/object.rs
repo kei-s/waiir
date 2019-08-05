@@ -2,6 +2,8 @@ use super::ast::{BlockStatement, Identifier};
 use super::enum_with_fmt;
 use super::evaluator::Environment;
 use std::fmt;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 enum_with_fmt!(
     #[derive(Debug,Clone,PartialEq,Eq)]
@@ -21,7 +23,7 @@ enum_with_fmt!(
 pub struct Function {
     pub parameters: Vec<Identifier>,
     pub body: BlockStatement,
-    pub env: Environment,
+    pub env: Rc<RefCell<Environment>>,
 }
 
 impl fmt::Display for Function {

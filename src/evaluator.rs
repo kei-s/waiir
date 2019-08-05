@@ -1,6 +1,8 @@
 use super::ast::*;
 use super::object::*;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 const TRUE: Object = Object::Boolean(true);
 const FALSE: Object = Object::Boolean(false);
@@ -9,28 +11,32 @@ const NULL: Object = Object::Null;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Environment {
     store: HashMap<String, Object>,
-    outer: Option<Box<Environment>>,
+    outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
-    pub fn new() -> Environment {
+    pub fn new() -> Rc<RefCell<Environment>> {
         let store = HashMap::new();
-        Environment { store, outer: None }
+        let env = Environment { store, outer: None };
+        Rc::new(RefCell::new(env))
     }
 
-    pub fn new_enclosed(outer: Environment) -> Environment {
+    pub fn new_enclosed(outer: Rc<RefCell<Environment>>) -> Rc<RefCell<Environment>> {
         let store = HashMap::new();
-        Environment {
+        let env = Environment {
             store,
-            outer: Some(Box::new(outer)),
-        }
+            outer: Some(outer),
+        };
+        Rc::new(RefCell::new(env))
     }
 
     fn get(&self, name: &String) -> Option<Object> {
         if let Some(o) = self.store.get(name) {
             Some(o.clone())
         } else {
-            self.outer.as_ref().and_then(|outer| outer.get(name))
+            self.outer
+                .as_ref()
+                .and_then(|outer| outer.borrow().get(name))
         }
     }
 
@@ -40,13 +46,13 @@ impl Environment {
 }
 
 pub trait Eval {
-    fn eval(&self, env: &mut Environment) -> Object;
+    fn eval(&self, env: &mut Rc<RefCell<Environment>>) -> Object;
 }
 
 macro_rules! impl_eval {
     ($ty:ty => ($self:ident, $env:ident) $block:block) => {
         impl Eval for $ty {
-            fn eval(&$self, $env: &mut Environment) -> Object {
+            fn eval(&$self, $env: &mut Rc<RefCell<Environment>>) -> Object {
                 $block
             }
         }
@@ -94,7 +100,7 @@ impl_eval!(Statement => (self, env) {
             if is_error(&val) {
                 return val;
             }
-            env.set(&stmt.name.value, &val);
+            env.borrow_mut().set(&stmt.name.value, &val);
             val
         }
     }
@@ -241,7 +247,7 @@ impl_eval!(BlockStatement => (self, env) {
 });
 
 impl_eval!(Identifier => (self, env) {
-    if let Some(val) = env.get(&self.value) {
+    if let Some(val) = env.borrow().get(&self.value) {
         return val;
     }
     new_error(format!("identifier not found: {}", self.value))
@@ -251,7 +257,7 @@ impl_eval!(FunctionLiteral => (self, env) {
     Object::Function(Function {
         parameters: self.parameters.clone(),
         body: *self.body.clone(),
-        env: env.clone(),
+        env: Rc::clone(&env),
     })
 });
 
@@ -273,20 +279,15 @@ impl_eval!(CallExpression => (self, env) {
 
 fn apply_function(func: Object, args: Vec<Object>) -> Object {
     if let Object::Function(function) = func {
-        let mut extended_env = extended_function_env(&function, args);
+        let mut extended_env = Environment::new_enclosed(function.env);
+        for (i, param) in function.parameters.iter().enumerate() {
+            extended_env.borrow_mut().set(&param.value, &args[i]);
+        }
         let evaluated = function.body.eval(&mut extended_env);
         unwrap_return_value(evaluated)
     } else {
         new_error(format!("not a function: {:?}", func))
     }
-}
-
-fn extended_function_env(function: &Function, args: Vec<Object>) -> Environment {
-    let mut env = Environment::new_enclosed(function.env.clone());
-    for (i, param) in function.parameters.iter().enumerate() {
-        env.set(&param.value, &args[i]);
-    }
-    env
 }
 
 fn unwrap_return_value(obj: Object) -> Object {
