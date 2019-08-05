@@ -569,7 +569,7 @@ mod tests {
                 if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
                     if let Expression::PrefixExpression(exp) = &stmt.expression {
                         assert_eq!(exp.operator, expected_operator);
-                        assert_literal_expression(&*exp.right, expected_integer_value);
+                        assert_literal_expression(&exp.right, expected_integer_value);
                     } else {
                         assert!(false, "stmt is not ast::PrefixExpression");
                     }
@@ -726,11 +726,11 @@ mod tests {
 
         if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
             if let Expression::IfExpression(exp) = &stmt.expression {
-                assert_infix_expression(&*exp.condition, "x".to_string(), "<", "y".to_string());
+                assert_infix_expression(&exp.condition, "x".to_string(), "<", "y".to_string());
                 assert_eq!(exp.consequence.statements.len(), 1);
                 if let Statement::ExpressionStatement(consequence) = &exp.consequence.statements[0]
                 {
-                    assert_identifier(&consequence.expression, &"x".to_string());
+                    assert_identifier(&consequence.expression, "x");
                 } else {
                     assert!(false, "statements[0] is not ast::ExpressionStatement")
                 }
@@ -758,11 +758,11 @@ mod tests {
 
         if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
             if let Expression::IfExpression(exp) = &stmt.expression {
-                assert_infix_expression(&*exp.condition, "x".to_string(), "<", "y".to_string());
+                assert_infix_expression(&exp.condition, "x".to_string(), "<", "y".to_string());
                 assert_eq!(exp.consequence.statements.len(), 1);
                 if let Statement::ExpressionStatement(consequence) = &exp.consequence.statements[0]
                 {
-                    assert_identifier(&consequence.expression, &"x".to_string());
+                    assert_identifier(&consequence.expression, "x");
                 } else {
                     assert!(false, "statements[0] is not ast::ExpressionStatement")
                 }
@@ -771,7 +771,7 @@ mod tests {
                     if let Statement::ExpressionStatement(alternative) =
                         &(*exp_alternative).statements[0]
                     {
-                        assert_identifier(&alternative.expression, &"y".to_string());
+                        assert_identifier(&alternative.expression, "y");
                     } else {
                         assert!(false, "statements[0] is not ast::ExpressionStatement")
                     }
@@ -861,7 +861,7 @@ mod tests {
         assert_eq!(program.statements.len(), 1);
         if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
             if let Expression::CallExpression(exp) = &stmt.expression {
-                assert_identifier(&*exp.function, &"add".to_string());
+                assert_identifier(&exp.function, "add");
                 assert_eq!(exp.arguments.len(), 3);
                 assert_literal_expression(&exp.arguments[0], 1);
                 assert_infix_expression(&exp.arguments[1], 2, "*", 3);
@@ -922,7 +922,7 @@ mod tests {
         }
     }
 
-    fn assert_identifier(exp: &Expression, value: &String) {
+    fn assert_identifier(exp: &Expression, value: &str) {
         if let Expression::Identifier(ident) = exp {
             assert_eq!(&ident.value, value);
             assert_eq!(format!("{}", ident.value), format!("{}", value));
@@ -973,9 +973,9 @@ mod tests {
         right: U,
     ) {
         if let Expression::InfixExpression(op_exp) = exp {
-            assert_literal_expression(&*op_exp.left, left);
+            assert_literal_expression(&op_exp.left, left);
             assert_eq!(&op_exp.operator, operator);
-            assert_literal_expression(&*op_exp.right, right);
+            assert_literal_expression(&op_exp.right, right);
         } else {
             assert!(false, "exp not ast::InfixExpression");
         }
