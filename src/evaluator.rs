@@ -116,6 +116,7 @@ impl_eval!(Expression => (self, env) {
         Expression::Identifier(exp) => exp.eval(env),
         Expression::FunctionLiteral(exp) => exp.eval(env),
         Expression::CallExpression(exp) => exp.eval(env),
+        Expression::StringLiteral(exp) => exp.eval(env),
     }
 });
 
@@ -188,6 +189,15 @@ fn eval_infix_expression(operator: &String, left: Object, right: Object) -> Obje
     if let Object::Integer(l) = left {
         if let Object::Integer(r) = right {
             return eval_integer_infix_expression(operator, l, r);
+        }
+        return new_error(format!(
+            "type mismatch: {:?} {} {:?}",
+            left, operator, right
+        ));
+    }
+    if let Object::String(l) = &left {
+        if let Object::String(r) = &right {
+            return eval_string_infix_expression(operator, l, r);
         }
         return new_error(format!(
             "type mismatch: {:?} {} {:?}",
@@ -295,6 +305,20 @@ fn unwrap_return_value(obj: Object) -> Object {
         return *return_value;
     }
     obj
+}
+
+impl_eval!(StringLiteral => (self, _env) {
+    Object::String(self.value.clone())
+});
+
+fn eval_string_infix_expression(operator: &String, left: &str, right: &str) -> Object {
+    if operator != "+" {
+        return new_error(format!(
+            "unknown operator: {:?} {} {:?}",
+            left, operator, right
+        ));
+    }
+    Object::String([left, right].join(""))
 }
 
 fn is_truthy(obj: Object) -> bool {
@@ -507,6 +531,10 @@ mod tests {
                 "unknown operator: Boolean(true) + Boolean(false)",
             ),
             ("foobar", "identifier not found: foobar"),
+            (
+                "\"Hello\" - \"World\"",
+                "unknown operator: \"Hello\" - \"World\"",
+            ),
         ];
 
         for tt in tests {
@@ -600,6 +628,28 @@ mod tests {
             assert!(false, message);
         } else {
             assert_integer_object(test_eval(&input), 120);
+        }
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let input = "\"Hello World!\"".to_string();
+        let evaluated = test_eval(&input);
+        if let Object::String(string) = evaluated {
+            assert_eq!(string, "Hello World!")
+        } else {
+            assert!(false, "object is not String")
+        }
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let input = "\"Hello\" + \" \" + \"World!\"".to_string();
+        let evaluated = test_eval(&input);
+        if let Object::String(string) = &evaluated {
+            assert_eq!(string, "Hello World!")
+        } else {
+            assert!(false, "object is not String")
         }
     }
 

@@ -79,6 +79,7 @@ enum_with_fmt!(
         IfExpression(IfExpression),
         FunctionLiteral(FunctionLiteral),
         CallExpression(CallExpression),
+        StringLiteral(StringLiteral),
     }
 );
 
@@ -202,6 +203,18 @@ impl fmt::Display for CallExpression {
         )
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StringLiteral {
+    pub value: String,
+}
+
+impl fmt::Display for StringLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\"{}\"", self.value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

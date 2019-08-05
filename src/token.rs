@@ -37,6 +37,8 @@ pub enum TokenType {
     If,
     Else,
     Return,
+
+    String,
 }
 
 #[derive(Debug, Eq, PartialEq)]

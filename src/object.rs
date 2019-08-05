@@ -1,9 +1,9 @@
 use super::ast::{BlockStatement, Identifier};
 use super::enum_with_fmt;
 use super::evaluator::Environment;
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 enum_with_fmt!(
     #[derive(Debug,Clone,PartialEq,Eq)]
@@ -13,6 +13,7 @@ enum_with_fmt!(
         ReturnValue(Box<Object>),
         Function(Function),
         => // custom format
+        String(String) => "\"{}\"",
         Error(String) => "Error: {}",
         ;=> // without data and custom format
         Null => "null",

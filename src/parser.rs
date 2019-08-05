@@ -156,6 +156,7 @@ impl Parser {
             TokenType::LParen => self.parse_grouped_expression()?,
             TokenType::If => Expression::IfExpression(self.parse_if_expression()?),
             TokenType::Function => Expression::FunctionLiteral(self.parse_function_literal()?),
+            TokenType::String => Expression::StringLiteral(self.parse_string_literal()?),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -367,6 +368,12 @@ impl Parser {
         }
 
         Ok(args)
+    }
+
+    fn parse_string_literal(&self) -> Result<StringLiteral, ParseError> {
+        Ok(StringLiteral {
+            value: self.cur_token().literal.clone(),
+        })
     }
 
     fn next_token(&mut self) {
@@ -864,6 +871,24 @@ mod tests {
             }
         } else {
             assert!(false, "stmt is not ast::ExpressionStatement")
+        }
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = "\"hello world\";".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::StringLiteral(literal) = &stmt.expression {
+                assert_eq!(literal.value, "hello world")
+            } else {
+                assert!(false, "exp not ast::StringLiteral")
+            }
         }
     }
 

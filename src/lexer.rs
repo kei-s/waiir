@@ -98,6 +98,10 @@ impl Lexer {
                     t: TokenType::RBrace,
                     literal: ch.to_string(),
                 },
+                '"' => Token {
+                    t: TokenType::String,
+                    literal: self.read_string(),
+                },
                 'a'..='z' | 'A'..='Z' | '_' => return Some(self.read_identifier()),
                 '0'..='9' => return Some(self.read_number()),
                 _ => Token {
@@ -166,6 +170,17 @@ impl Lexer {
             literal: literal,
         }
     }
+    fn read_string(&mut self) -> String {
+        let mut literal = String::new();
+        loop {
+            self.read_char();
+            if self.ch.is_none() || self.ch.unwrap() == '"' {
+                break;
+            }
+            literal.push(self.ch.unwrap());
+        }
+        literal
+    }
 
     fn skip_whitespace(&mut self) {
         loop {
@@ -215,7 +230,9 @@ if (5 < 10) {
 
 10 == 10;
 10 != 9;
--a * b"#
+-a * b
+"foobar"
+"foo bar""#
             .to_string();
 
         let tests = vec![
@@ -296,6 +313,8 @@ if (5 < 10) {
             (TokenType::Ident, "a"),
             (TokenType::Asterisk, "*"),
             (TokenType::Ident, "b"),
+            (TokenType::String, "foobar"),
+            (TokenType::String, "foo bar"),
         ];
 
         let mut l = Lexer::new(&input);
