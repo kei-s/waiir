@@ -12,6 +12,7 @@ enum Precedence {
     Product,     // *
     Prefix,      // -X OR !X
     Call,        // myFunction(x)
+    Index,       // array[index]
 }
 
 #[derive(Debug)]
@@ -131,6 +132,10 @@ impl Parser {
                         self.next_token();
                         Expression::InfixExpression(self.parse_infix_expression(left_exp)?)
                     }
+                    TokenType::LBracket => {
+                        self.next_token();
+                        Expression::IndexExpression(self.parse_index_expression(left_exp)?)
+                    }
                     TokenType::LParen => {
                         self.next_token();
                         Expression::CallExpression(self.parse_call_expression(left_exp)?)
@@ -157,6 +162,7 @@ impl Parser {
             TokenType::If => Expression::IfExpression(self.parse_if_expression()?),
             TokenType::Function => Expression::FunctionLiteral(self.parse_function_literal()?),
             TokenType::String => Expression::StringLiteral(self.parse_string_literal()?),
+            TokenType::LBracket => Expression::ArrayLiteral(self.parse_array_literal()?),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -175,6 +181,21 @@ impl Parser {
             operator,
             right: Box::new(right),
         })
+    }
+
+    fn parse_index_expression(&mut self, left: Expression) -> Result<IndexExpression, ParseError> {
+        self.next_token();
+        let index = self.parse_expression(Precedence::Lowest)?;
+        if !self.expect_peek(&TokenType::RBracket) {
+            Err(ParseError {
+                message: String::from("Missing RBracket"),
+            })
+        } else {
+            Ok(IndexExpression {
+                left: Box::new(left),
+                index: Box::new(index),
+            })
+        }
     }
 
     fn parse_identifier(&self) -> Identifier {
@@ -337,17 +358,17 @@ impl Parser {
         &mut self,
         function: Expression,
     ) -> Result<CallExpression, ParseError> {
-        let arguments = self.parse_call_arguments()?;
+        let arguments = self.parse_expression_list(TokenType::RParen)?;
         Ok(CallExpression {
             function: Box::new(function),
             arguments,
         })
     }
 
-    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>, ParseError> {
+    fn parse_expression_list(&mut self, end: TokenType) -> Result<Vec<Expression>, ParseError> {
         let mut args: Vec<Expression> = vec![];
 
-        if self.peek_token_is(&TokenType::RParen) {
+        if self.peek_token_is(&end) {
             self.next_token();
             return Ok(args);
         }
@@ -361,7 +382,7 @@ impl Parser {
             args.push(self.parse_expression(Precedence::Lowest)?);
         }
 
-        if !self.expect_peek(&TokenType::RParen) {
+        if !self.expect_peek(&end) {
             return Err(ParseError {
                 message: String::from("Missing RParen"),
             });
@@ -374,6 +395,11 @@ impl Parser {
         Ok(StringLiteral {
             value: self.cur_token().literal.clone(),
         })
+    }
+
+    fn parse_array_literal(&mut self) -> Result<ArrayLiteral, ParseError> {
+        let elements = self.parse_expression_list(TokenType::RBracket)?;
+        Ok(ArrayLiteral { elements })
     }
 
     fn next_token(&mut self) {
@@ -436,6 +462,7 @@ impl Parser {
             TokenType::Slash => Precedence::Product,
             TokenType::Asterisk => Precedence::Product,
             TokenType::LParen => Precedence::Call,
+            TokenType::LBracket => Precedence::Index,
             _ => Precedence::Lowest,
         }
     }
@@ -670,6 +697,14 @@ mod tests {
                 "add(a + b + c * d / f + g)",
                 "add((((a + b) + ((c * d) / f)) + g))",
             ),
+            (
+                "a * [1, 2, 3, 4][b * c] * d",
+                "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+            ),
+            (
+                "add(a * b[2], b[1], 2 * [1, 2][1])",
+                "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))",
+            ),
         ];
 
         for tt in tests {
@@ -888,6 +923,46 @@ mod tests {
                 assert_eq!(literal.value, "hello world")
             } else {
                 assert!(false, "exp not ast::StringLiteral")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::ArrayLiteral(array) = &stmt.expression {
+                assert_eq!(array.elements.len(), 3);
+                assert_integer_literal(&array.elements[0], 1);
+                assert_infix_expression(&array.elements[1], 2, "*", 2);
+                assert_infix_expression(&array.elements[2], 3, "+", 3);
+            } else {
+                assert!(false, "exp not ast::ArrayLiteral")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_index_expressions() {
+        let input = "myArray[1 + 1];".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::IndexExpression(index_exp) = &stmt.expression {
+                assert_identifier(&index_exp.left, "myArray");
+                assert_infix_expression(&index_exp.index, 1, "+", 1);
+            } else {
+                assert!(false, "exp not ast::IndexExpression")
             }
         }
     }

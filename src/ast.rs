@@ -80,6 +80,8 @@ enum_with_fmt!(
         FunctionLiteral(FunctionLiteral),
         CallExpression(CallExpression),
         StringLiteral(StringLiteral),
+        ArrayLiteral(ArrayLiteral),
+        IndexExpression(IndexExpression),
     }
 );
 
@@ -212,6 +214,37 @@ pub struct StringLiteral {
 impl fmt::Display for StringLiteral {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "\"{}\"", self.value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArrayLiteral {
+    pub elements: Vec<Expression>,
+}
+
+impl fmt::Display for ArrayLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{}]",
+            self.elements
+                .iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexExpression {
+    pub left: Box<Expression>,
+    pub index: Box<Expression>,
+}
+
+impl fmt::Display for IndexExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}[{}])", self.left, self.index)
     }
 }
 

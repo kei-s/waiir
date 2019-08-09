@@ -117,6 +117,8 @@ impl_eval!(Expression => (self, env) {
         Expression::FunctionLiteral(exp) => exp.eval(env),
         Expression::CallExpression(exp) => exp.eval(env),
         Expression::StringLiteral(exp) => exp.eval(env),
+        Expression::ArrayLiteral(exp) => exp.eval(env),
+        Expression::IndexExpression(exp) => exp.eval(env),
     }
 });
 
@@ -262,6 +264,10 @@ impl_eval!(Identifier => (self, env) {
     }
     match self.value.as_str() {
         "len" => Object::Builtin(Builtin{func: builtin::len}),
+        "first" => Object::Builtin(Builtin{func: builtin::first}),
+        "last" => Object::Builtin(Builtin{func: builtin::last}),
+        "rest" => Object::Builtin(Builtin{func: builtin::rest}),
+        "push" => Object::Builtin(Builtin{func: builtin::push}),
         _ => new_error(format!("identifier not found: {}", self.value))
     }
 });
@@ -329,6 +335,48 @@ fn eval_string_infix_expression(operator: &String, left: &str, right: &str) -> O
     Object::String([left, right].join(""))
 }
 
+impl_eval!(ArrayLiteral => (self, env) {
+    let mut elements: Vec<Object> = vec![];
+    for element in &self.elements {
+        let evaluated = element.eval(env);
+        if is_error(&evaluated) {
+            return evaluated;
+        }
+        elements.push(evaluated);
+    }
+    Object::Array(Array{ elements })
+});
+
+impl_eval!(IndexExpression => (self, env) {
+    let left = self.left.eval(env);
+    if is_error(&left) {
+        return left
+    }
+    let index = self.index.eval(env);
+    if is_error(&index) {
+        return index
+    }
+    eval_index_expression(left, index)
+});
+
+fn eval_index_expression(left: Object, index: Object) -> Object {
+    if let Object::Array(array) = &left {
+        if let Object::Integer(idx) = index {
+            return eval_array_index_expression(&array.elements, idx);
+        }
+    }
+    new_error(format!("index operator not supported: {:?}", left))
+}
+
+fn eval_array_index_expression(elements: &Vec<Object>, idx: i64) -> Object {
+    let max = elements.len() - 1;
+
+    if idx < 0 || idx as usize > max {
+        return NULL;
+    }
+    elements[idx as usize].clone()
+}
+
 fn is_truthy(obj: Object) -> bool {
     match obj {
         NULL => false,
@@ -352,7 +400,7 @@ fn is_error(obj: &Object) -> bool {
 
 mod builtin {
     use super::new_error;
-    use super::Object;
+    use super::{Array, Object, NULL};
 
     pub fn len(args: Vec<Object>) -> Object {
         if args.len() != 1 {
@@ -361,11 +409,95 @@ mod builtin {
                 args.len()
             ));
         }
-        if let Object::String(string) = &args[0] {
-            Object::Integer(string.len() as i64)
+        match &args[0] {
+            Object::String(string) => Object::Integer(string.len() as i64),
+            Object::Array(array) => Object::Integer(array.elements.len() as i64),
+            _ => new_error(format!(
+                "argument to `len` not supported, got {:?}",
+                args[0]
+            )),
+        }
+    }
+
+    pub fn first(args: Vec<Object>) -> Object {
+        if args.len() != 1 {
+            return new_error(format!(
+                "wrong number of arguments. got={}, want=1",
+                args.len()
+            ));
+        }
+        if let Object::Array(array) = &args[0] {
+            if !array.elements.is_empty() {
+                array.elements.first().unwrap().clone()
+            } else {
+                NULL
+            }
         } else {
             new_error(format!(
-                "argument to `len` not supported, got {:?}",
+                "argument to `first` must be ARRAY, got {:?}",
+                args[0]
+            ))
+        }
+    }
+
+    pub fn last(args: Vec<Object>) -> Object {
+        if args.len() != 1 {
+            return new_error(format!(
+                "wrong number of arguments. got={}, want=1",
+                args.len()
+            ));
+        }
+        if let Object::Array(array) = &args[0] {
+            if !array.elements.is_empty() {
+                array.elements.last().unwrap().clone()
+            } else {
+                NULL
+            }
+        } else {
+            new_error(format!(
+                "argument to `last` must be ARRAY, got {:?}",
+                args[0]
+            ))
+        }
+    }
+
+    pub fn rest(args: Vec<Object>) -> Object {
+        if args.len() != 1 {
+            return new_error(format!(
+                "wrong number of arguments. got={}, want=1",
+                args.len()
+            ));
+        }
+        if let Object::Array(array) = &args[0] {
+            if !array.elements.is_empty() {
+                Object::Array(Array {
+                    elements: array.elements[1..].to_vec(),
+                })
+            } else {
+                NULL
+            }
+        } else {
+            new_error(format!(
+                "argument to `rest` must be ARRAY, got {:?}",
+                args[0]
+            ))
+        }
+    }
+
+    pub fn push(args: Vec<Object>) -> Object {
+        if args.len() != 2 {
+            return new_error(format!(
+                "wrong number of arguments. got={}, want=2",
+                args.len()
+            ));
+        }
+        if let Object::Array(array) = &args[0] {
+            let mut elements = array.elements[..].to_vec();
+            elements.push(args[1].clone());
+            Object::Array(Array { elements })
+        } else {
+            new_error(format!(
+                "argument to `push` must be ARRAY, got {:?}",
                 args[0]
             ))
         }
@@ -403,7 +535,7 @@ mod tests {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
-            assert_integer_object(evaluated, expected);
+            assert_integer_object(&evaluated, expected);
         }
     }
 
@@ -472,7 +604,7 @@ mod tests {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
-            assert_integer_object(evaluated, expected);
+            assert_integer_object(&evaluated, expected);
         }
 
         let nil_tests = vec!["if (false) { 10 }", "if (1 > 2) { 10 }"];
@@ -528,7 +660,7 @@ mod tests {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
-            assert_integer_object(evaluated, expected);
+            assert_integer_object(&evaluated, expected);
         }
     }
 
@@ -592,7 +724,7 @@ mod tests {
         for tt in tests {
             let input = tt.0.to_string();
             let expected = tt.1;
-            assert_integer_object(test_eval(&input), expected);
+            assert_integer_object(&test_eval(&input), expected);
         }
     }
 
@@ -622,7 +754,7 @@ mod tests {
         ];
 
         for tt in tests {
-            assert_integer_object(test_eval(&tt.0.to_string()), tt.1);
+            assert_integer_object(&test_eval(&tt.0.to_string()), tt.1);
         }
     }
 
@@ -636,7 +768,7 @@ mod tests {
             addTwo(2);
         "#
         .to_string();
-        assert_integer_object(test_eval(&input), 4);
+        assert_integer_object(&test_eval(&input), 4);
     }
 
     #[test]
@@ -657,7 +789,7 @@ mod tests {
         if let Object::Error(message) = evaluated {
             assert!(false, message);
         } else {
-            assert_integer_object(test_eval(&input), 120);
+            assert_integer_object(&test_eval(&input), 120);
         }
     }
 
@@ -689,13 +821,39 @@ mod tests {
             ("len(\"\")", 0),
             ("len(\"four\")", 4),
             ("len(\"hello world\")", 11),
+            ("len([1, 2, 3])", 3),
+            ("len([])", 0),
+            ("first([1, 2, 3])", 1),
+            ("last([1, 2, 3])", 3),
         ];
 
         for tt in tests {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
-            assert_integer_object(evaluated, expected);
+            assert_integer_object(&evaluated, expected);
+        }
+
+        let null_tests = vec!["first([])", "last([])", "rest([])"];
+
+        for tt in null_tests {
+            assert_null_object(test_eval(&tt.to_string()));
+        }
+
+        let array_tests = vec![("rest([1, 2, 3])", vec![2, 3]), ("push([], 1)", vec![1])];
+
+        for tt in array_tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            if let Object::Array(array) = &evaluated {
+                assert_eq!(array.elements.len(), expected.len());
+                for (r, i) in array.elements.iter().zip(expected.iter()) {
+                    assert_integer_object(r, *i as i64);
+                }
+            } else {
+                assert!(false, "obj not Array")
+            }
         }
 
         let error_tests = vec![
@@ -703,6 +861,18 @@ mod tests {
             (
                 "len(\"one\", \"two\")",
                 "wrong number of arguments. got=2, want=1",
+            ),
+            (
+                "first(1)",
+                "argument to `first` must be ARRAY, got Integer(1)",
+            ),
+            (
+                "last(1)",
+                "argument to `last` must be ARRAY, got Integer(1)",
+            ),
+            (
+                "push(1, 1)",
+                "argument to `push` must be ARRAY, got Integer(1)",
             ),
         ];
 
@@ -718,6 +888,54 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]".to_string();
+
+        let evaluated = test_eval(&input);
+        if let Object::Array(result) = evaluated {
+            assert_eq!(result.elements.len(), 3);
+            for (r, i) in result.elements.iter().zip([1, 4, 6].iter()) {
+                assert_integer_object(r, *i as i64);
+            }
+        } else {
+            assert!(false, "object is not array")
+        }
+    }
+
+    #[test]
+    fn test_array_index_expressions() {
+        let tests = vec![
+            ("[1, 2, 3][0]", 1),
+            ("[1, 2, 3][1]", 2),
+            ("[1, 2, 3][2]", 3),
+            ("let i = 0; [1][i]", 1),
+            ("[1, 2, 3][1 + 1]", 3),
+            ("let myArray = [1, 2, 3]; myArray[2]", 3),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2]",
+                6,
+            ),
+            ("let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]", 2),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+
+            let evaluated = test_eval(&input);
+            assert_integer_object(&evaluated, expected);
+        }
+
+        let null_tests = vec!["[1, 2, 3][3]", "[1, 2, 3][-1]"];
+
+        for tt in null_tests {
+            let input = tt.to_string();
+
+            let evaluated = test_eval(&input);
+            assert_null_object(evaluated);
+        }
+    }
     fn test_eval(input: &String) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
@@ -726,9 +944,9 @@ mod tests {
         program.eval(&mut env)
     }
 
-    fn assert_integer_object(obj: Object, expected: i64) {
+    fn assert_integer_object(obj: &Object, expected: i64) {
         if let Object::Integer(result) = obj {
-            assert_eq!(result, expected)
+            assert_eq!(result, &expected)
         } else {
             assert!(false, "object is not Integer")
         }

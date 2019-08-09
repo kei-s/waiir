@@ -13,6 +13,7 @@ enum_with_fmt!(
         ReturnValue(Box<Object>),
         Function(Function),
         Builtin(Builtin),
+        Array(Array),
         => // custom format
         String(String) => "\"{}\"",
         Error(String) => "Error: {}",
@@ -39,6 +40,25 @@ impl fmt::Display for Function {
                 .collect::<Vec<_>>()
                 .join(", "),
             self.body
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Array {
+    pub elements: Vec<Object>,
+}
+
+impl fmt::Display for Array {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{}]",
+            self.elements
+                .iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 }
