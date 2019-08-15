@@ -270,6 +270,7 @@ impl_eval!(Identifier => (self, env) {
         "last" => Object::Builtin(Builtin{func: builtin::last}),
         "rest" => Object::Builtin(Builtin{func: builtin::rest}),
         "push" => Object::Builtin(Builtin{func: builtin::push}),
+        "puts" => Object::Builtin(Builtin{func: builtin::puts}),
         _ => new_error(format!("identifier not found: {}", self.value))
     }
 });
@@ -541,6 +542,13 @@ mod builtin {
                 args[0]
             ))
         }
+    }
+
+    pub fn puts(args: Vec<Object>) -> Object {
+        for arg in args {
+            println!("{}", arg);
+        }
+        NULL
     }
 }
 

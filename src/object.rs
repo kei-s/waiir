@@ -17,8 +17,8 @@ enum_with_fmt!(
         Builtin(Builtin),
         Array(Array),
         Hash(Hash),
+        String(String),
         => // custom format
-        String(String) => "\"{}\"",
         Error(String) => "Error: {}",
         ;=> // without data and custom format
         Null => "null",
