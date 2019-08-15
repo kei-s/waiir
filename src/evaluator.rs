@@ -738,8 +738,8 @@ mod tests {
             ),
             ("foobar", "identifier not found: foobar"),
             (
-                "\"Hello\" - \"World\"",
-                "unknown operator: \"Hello\" - \"World\"",
+                r#""Hello" - "World""#,
+                r#"unknown operator: "Hello" - "World""#,
             ),
             (
                 r#"{"name": "Monkey"}[fn(x) { x }];"#,
@@ -837,7 +837,7 @@ mod tests {
 
     #[test]
     fn test_string_literal() {
-        let input = "\"Hello World!\"";
+        let input = r#""Hello World!""#;
         let evaluated = test_eval(input);
         if let Object::String(string) = evaluated {
             assert_eq!(string, "Hello World!")
@@ -848,7 +848,7 @@ mod tests {
 
     #[test]
     fn test_string_concatenation() {
-        let input = "\"Hello\" + \" \" + \"World!\"";
+        let input = r#""Hello" + " " + "World!""#;
         let evaluated = test_eval(input);
         if let Object::String(string) = &evaluated {
             assert_eq!(string, "Hello World!")
@@ -860,9 +860,9 @@ mod tests {
     #[test]
     fn test_builtin_functions() {
         let tests = [
-            ("len(\"\")", 0),
-            ("len(\"four\")", 4),
-            ("len(\"hello world\")", 11),
+            (r#"len("")"#, 0),
+            (r#"len("four")"#, 4),
+            (r#"len("hello world")"#, 11),
             ("len([1, 2, 3])", 3),
             ("len([])", 0),
             ("first([1, 2, 3])", 1),
@@ -897,7 +897,7 @@ mod tests {
         let error_tests = [
             ("len(1)", "argument to `len` not supported, got Integer(1)"),
             (
-                "len(\"one\", \"two\")",
+                r#"len("one", "two")"#,
                 "wrong number of arguments. got=2, want=1",
             ),
             (

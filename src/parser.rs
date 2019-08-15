@@ -927,7 +927,7 @@ mod tests {
 
     #[test]
     fn test_string_literal_expression() {
-        let input = "\"hello world\";";
+        let input = r#""hello world";"#;
 
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
