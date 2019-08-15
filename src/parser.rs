@@ -523,12 +523,8 @@ mod tests {
         test(vec![("let foobar = y;", "foobar", "y".to_string())]);
 
         fn test<T: AssertWithExpression>(tests: Vec<(&str, &str, T)>) {
-            for tt in tests {
-                let input = tt.0.to_string();
-                let expected_identifier = tt.1;
-                let expected_value = tt.2;
-
-                let l = Lexer::new(&input);
+            for (input, expected_identifier, expected_value) in tests {
+                let l = Lexer::new(input);
                 let mut p = Parser::new(l);
                 let program = p.parse_program();
                 check_parse_errors(p);
@@ -550,11 +546,8 @@ mod tests {
         test(vec![("return foobar", "foobar".to_string())]);
 
         fn test<T: AssertWithExpression>(tests: Vec<(&str, T)>) {
-            for tt in tests {
-                let input = tt.0.to_string();
-                let expected_value = tt.1;
-
-                let l = Lexer::new(&input);
+            for (input, expected_value) in tests {
+                let l = Lexer::new(input);
                 let mut p = Parser::new(l);
                 let program = p.parse_program();
                 check_parse_errors(p);
@@ -571,9 +564,9 @@ mod tests {
 
     #[test]
     fn test_identifier_expressions() {
-        let input = "foobar;".to_string();
+        let input = "foobar;";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
@@ -596,9 +589,9 @@ mod tests {
 
     #[test]
     fn test_integer_literal_expressions() {
-        let input = "5;".to_string();
+        let input = "5;";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
@@ -625,12 +618,8 @@ mod tests {
         test(vec![("!true;", "!", true), ("!false;", "!", false)]);
 
         fn test<T: AssertWithExpression>(tests: Vec<(&str, &str, T)>) {
-            for tt in tests {
-                let input = tt.0.to_string();
-                let expected_operator = tt.1;
-                let expected_integer_value = tt.2;
-
-                let l = Lexer::new(&input);
+            for (input, expected_operator, expected_value) in tests {
+                let l = Lexer::new(input);
                 let mut p = Parser::new(l);
                 let program = p.parse_program();
                 check_parse_errors(p);
@@ -639,7 +628,7 @@ mod tests {
                 if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
                     if let Expression::PrefixExpression(exp) = &stmt.expression {
                         assert_eq!(exp.operator, expected_operator);
-                        assert_literal_expression(&exp.right, expected_integer_value);
+                        assert_literal_expression(&exp.right, expected_value);
                     } else {
                         assert!(false, "stmt is not ast::PrefixExpression");
                     }
@@ -673,13 +662,8 @@ mod tests {
         ]);
 
         fn test<T: AssertWithExpression, U: AssertWithExpression>(tests: Vec<(&str, T, &str, U)>) {
-            for tt in tests {
-                let input = tt.0.to_string();
-                let expected_left_value = tt.1;
-                let expected_operator = tt.2;
-                let expected_right_value = tt.3;
-
-                let l = Lexer::new(&input);
+            for (input, expected_left_value, expected_operator, expected_right_value) in tests {
+                let l = Lexer::new(input);
                 let mut p = Parser::new(l);
                 let program = p.parse_program();
                 check_parse_errors(p);
@@ -748,16 +732,13 @@ mod tests {
             ),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-
-            let l = Lexer::new(&input);
+        for (input, expected) in tests.iter() {
+            let l = Lexer::new(input);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parse_errors(p);
 
-            assert_eq!(format!("{}", program), expected);
+            assert_eq!(format!("{}", program), *expected);
         }
     }
 
@@ -765,11 +746,8 @@ mod tests {
     fn test_boolean_expressions() {
         let tests = [("true;", true), ("false;", false)];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-
-            let l = Lexer::new(&input);
+        for (input, expected) in tests.iter() {
+            let l = Lexer::new(input);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parse_errors(p);
@@ -777,7 +755,7 @@ mod tests {
 
             if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
                 if let Expression::Boolean(boolean) = &stmt.expression {
-                    assert_eq!(boolean.value, expected);
+                    assert_eq!(boolean.value, *expected);
                 } else {
                     assert!(false, "program.statements[0] is not ast::BooleanExpression")
                 }
@@ -792,9 +770,9 @@ mod tests {
 
     #[test]
     fn test_if_expression() {
-        let input = "if (x < y) { x }".to_string();
+        let input = "if (x < y) { x }";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -824,9 +802,9 @@ mod tests {
 
     #[test]
     fn test_if_else_expression() {
-        let input = "if (x < y) { x } else { y }".to_string();
+        let input = "if (x < y) { x } else { y }";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -867,9 +845,9 @@ mod tests {
 
     #[test]
     fn test_function_literal_parsing() {
-        let input = "fn(x, y) { x + y; }".to_string();
+        let input = "fn(x, y) { x + y; }";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -900,11 +878,8 @@ mod tests {
             ("fn(x, y, z) {};", vec!["x", "y", "z"]),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = &tt.1;
-
-            let l = Lexer::new(&input);
+        for (input, expected) in tests.iter() {
+            let l = Lexer::new(input);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parse_errors(p);
@@ -927,9 +902,9 @@ mod tests {
 
     #[test]
     fn test_call_expression_parsing() {
-        let input = "add(1, 2 * 3, 4 + 5);".to_string();
+        let input = "add(1, 2 * 3, 4 + 5);";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -952,9 +927,9 @@ mod tests {
 
     #[test]
     fn test_string_literal_expression() {
-        let input = "\"hello world\";".to_string();
+        let input = "\"hello world\";";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -970,9 +945,9 @@ mod tests {
 
     #[test]
     fn test_parsing_array_literals() {
-        let input = "[1, 2 * 2, 3 + 3]".to_string();
+        let input = "[1, 2 * 2, 3 + 3]";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -991,9 +966,9 @@ mod tests {
 
     #[test]
     fn test_parsing_index_expressions() {
-        let input = "myArray[1 + 1];".to_string();
+        let input = "myArray[1 + 1];";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -1010,9 +985,9 @@ mod tests {
 
     #[test]
     fn test_parsing_empty_hash_literal() {
-        let input = "{}".to_string();
+        let input = "{}";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -1028,9 +1003,9 @@ mod tests {
 
     #[test]
     fn test_parsing_hash_literal_string_keys() {
-        let input = r#"{"one": 1, "two": 2, "three": 3}"#.to_string();
+        let input = r#"{"one": 1, "two": 2, "three": 3}"#;
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -1059,9 +1034,9 @@ mod tests {
 
     #[test]
     fn test_parsing_hash_literal_boolean_keys() {
-        let input = "{true: 1, false: 2}".to_string();
+        let input = "{true: 1, false: 2}";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -1089,9 +1064,9 @@ mod tests {
 
     #[test]
     fn test_parsing_hash_literal_integer_keys() {
-        let input = "{1: 1, 2: 2, 3: 3}".to_string();
+        let input = "{1: 1, 2: 2, 3: 3}";
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);
@@ -1120,9 +1095,9 @@ mod tests {
 
     #[test]
     fn test_parsing_hash_literal_with_expressions() {
-        let input = r#"{"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}"#.to_string();
+        let input = r#"{"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}"#;
 
-        let l = Lexer::new(&input);
+        let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parse_errors(p);

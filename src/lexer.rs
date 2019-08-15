@@ -6,7 +6,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(input: &String) -> Lexer {
+    pub fn new(input: &str) -> Lexer {
         let mut l = Lexer {
             chars: input.chars().collect::<Vec<_>>().into_iter().peekable(),
             ch: None,
@@ -246,8 +246,7 @@ if (5 < 10) {
 "foobar"
 "foo bar"
 [1,2];
-{"foo": "bar"}"#
-            .to_string();
+{"foo": "bar"}"#;
 
         let tests = [
             (TokenType::Let, "let"),
@@ -342,12 +341,12 @@ if (5 < 10) {
             (TokenType::RBrace, "}"),
         ];
 
-        let mut l = Lexer::new(&input);
+        let mut l = Lexer::new(input);
 
-        for tt in tests.iter() {
+        for (expected_type, expected_literal) in tests.iter() {
             let tok = l.next().unwrap();
-            assert_eq!(tok.t, tt.0);
-            assert_eq!(tok.literal, tt.1);
+            assert_eq!(tok.t, *expected_type);
+            assert_eq!(tok.literal, *expected_literal);
         }
         assert_eq!(l.next(), None);
     }

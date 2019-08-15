@@ -35,7 +35,7 @@ impl Environment {
         Rc::new(RefCell::new(env))
     }
 
-    fn get(&self, name: &String) -> Option<Object> {
+    fn get(&self, name: &str) -> Option<Object> {
         if let Some(o) = self.store.get(name) {
             Some(o.clone())
         } else {
@@ -45,8 +45,8 @@ impl Environment {
         }
     }
 
-    fn set(&mut self, name: &String, val: &Object) {
-        self.store.insert(name.clone(), val.clone());
+    fn set(&mut self, name: &str, val: &Object) {
+        self.store.insert(name.to_string(), val.clone());
     }
 }
 
@@ -150,8 +150,8 @@ impl_eval!(PrefixExpression => (self, env) {
     eval_prefix_expression(&self.operator, right)
 });
 
-fn eval_prefix_expression(operator: &String, right: Object) -> Object {
-    match operator.as_str() {
+fn eval_prefix_expression(operator: &str, right: Object) -> Object {
+    match operator {
         "!" => eval_bang_operator_expression(right),
         "-" => eval_minus_prefix_operator_expression(right),
         _ => new_error(format!("unknown operator: {}{:?}", operator, right)),
@@ -187,11 +187,11 @@ impl_eval!(InfixExpression => (self, env) {
     eval_infix_expression(&self.operator, left, right)
 });
 
-fn eval_infix_expression(operator: &String, left: Object, right: Object) -> Object {
-    if operator.as_str() == "==" {
+fn eval_infix_expression(operator: &str, left: Object, right: Object) -> Object {
+    if operator == "==" {
         return native_bool_to_boolean_object(left == right);
     }
-    if operator.as_str() == "!=" {
+    if operator == "!=" {
         return native_bool_to_boolean_object(left != right);
     }
     if let Object::Integer(l) = left {
@@ -218,8 +218,8 @@ fn eval_infix_expression(operator: &String, left: Object, right: Object) -> Obje
     ));
 }
 
-fn eval_integer_infix_expression(operator: &String, left_val: i64, right_val: i64) -> Object {
-    match operator.as_str() {
+fn eval_integer_infix_expression(operator: &str, left_val: i64, right_val: i64) -> Object {
+    match operator {
         "+" => Object::Integer(left_val + right_val),
         "-" => Object::Integer(left_val - right_val),
         "*" => Object::Integer(left_val * right_val),
@@ -332,7 +332,7 @@ impl_eval!(StringLiteral => (self, _env) {
     Object::String(self.value.clone())
 });
 
-fn eval_string_infix_expression(operator: &String, left: &str, right: &str) -> Object {
+fn eval_string_infix_expression(operator: &str, left: &str, right: &str) -> Object {
     if operator != "+" {
         return new_error(format!(
             "unknown operator: {:?} {} {:?}",
@@ -585,11 +585,9 @@ mod tests {
             ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
-            assert_integer_object(&evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_integer_object(&evaluated, *expected);
         }
     }
 
@@ -608,11 +606,9 @@ mod tests {
             ("1 != 2", true),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
-            assert_boolean_object(evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_boolean_object(evaluated, *expected);
         }
     }
 
@@ -636,11 +632,9 @@ mod tests {
             ("(1 > 2) == false", true),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
-            assert_boolean_object(evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_boolean_object(evaluated, *expected);
         }
     }
 
@@ -654,17 +648,15 @@ mod tests {
             ("if (1 < 2) { 10 } else { 20 }", 10),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
-            assert_integer_object(&evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_integer_object(&evaluated, *expected);
         }
 
         let nil_tests = ["if (false) { 10 }", "if (1 > 2) { 10 }"];
 
         for input in nil_tests.iter() {
-            let evaluated = test_eval(&input.to_string());
+            let evaluated = test_eval(input);
             assert_null_object(evaluated);
         }
     }
@@ -710,11 +702,9 @@ mod tests {
             ),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
-            assert_integer_object(&evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_integer_object(&evaluated, *expected);
         }
     }
 
@@ -757,13 +747,11 @@ mod tests {
             ),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
 
             if let Object::Error(message) = evaluated {
-                assert_eq!(message, expected)
+                assert_eq!(message, *expected)
             } else {
                 assert!(false, "no error object returned.")
             }
@@ -779,18 +767,16 @@ mod tests {
             ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            assert_integer_object(&test_eval(&input), expected);
+        for (input, expected) in tests.iter() {
+            assert_integer_object(&test_eval(input), *expected);
         }
     }
 
     #[test]
     fn test_function_object() {
-        let input = "fn(x) { x + 2; }".to_string();
+        let input = "fn(x) { x + 2; }";
 
-        let evaluated = test_eval(&input);
+        let evaluated = test_eval(input);
         if let Object::Function(func) = &evaluated {
             assert_eq!(func.parameters.len(), 1);
             assert_eq!(format!("{}", func.parameters[0]), "x");
@@ -811,8 +797,8 @@ mod tests {
             ("fn(x) { x; }(5)", 5),
         ];
 
-        for tt in tests.iter() {
-            assert_integer_object(&test_eval(&tt.0.to_string()), tt.1);
+        for (input, expected) in tests.iter() {
+            assert_integer_object(&test_eval(input), *expected);
         }
     }
 
@@ -824,9 +810,8 @@ mod tests {
             };
             let addTwo = newAdder(2);
             addTwo(2);
-        "#
-        .to_string();
-        assert_integer_object(&test_eval(&input), 4);
+        "#;
+        assert_integer_object(&test_eval(input), 4);
     }
 
     #[test]
@@ -840,21 +825,20 @@ mod tests {
                 }
             };
             factorial(5);
-        "#
-        .to_string();
+        "#;
 
-        let evaluated = test_eval(&input);
+        let evaluated = test_eval(input);
         if let Object::Error(message) = evaluated {
             assert!(false, message);
         } else {
-            assert_integer_object(&test_eval(&input), 120);
+            assert_integer_object(&test_eval(input), 120);
         }
     }
 
     #[test]
     fn test_string_literal() {
-        let input = "\"Hello World!\"".to_string();
-        let evaluated = test_eval(&input);
+        let input = "\"Hello World!\"";
+        let evaluated = test_eval(input);
         if let Object::String(string) = evaluated {
             assert_eq!(string, "Hello World!")
         } else {
@@ -864,8 +848,8 @@ mod tests {
 
     #[test]
     fn test_string_concatenation() {
-        let input = "\"Hello\" + \" \" + \"World!\"".to_string();
-        let evaluated = test_eval(&input);
+        let input = "\"Hello\" + \" \" + \"World!\"";
+        let evaluated = test_eval(input);
         if let Object::String(string) = &evaluated {
             assert_eq!(string, "Hello World!")
         } else {
@@ -885,25 +869,21 @@ mod tests {
             ("last([1, 2, 3])", 3),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
-            assert_integer_object(&evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_integer_object(&evaluated, *expected);
         }
 
         let null_tests = ["first([])", "last([])", "rest([])"];
 
         for tt in null_tests.iter() {
-            assert_null_object(test_eval(&tt.to_string()));
+            assert_null_object(test_eval(tt));
         }
 
         let array_tests = [("rest([1, 2, 3])", vec![2, 3]), ("push([], 1)", vec![1])];
 
-        for tt in array_tests.iter() {
-            let input = tt.0.to_string();
-            let expected = &tt.1;
-            let evaluated = test_eval(&input);
+        for (input, expected) in array_tests.iter() {
+            let evaluated = test_eval(input);
             if let Object::Array(array) = &evaluated {
                 assert_eq!(array.elements.len(), expected.len());
                 for (r, i) in array.elements.iter().zip(expected.iter()) {
@@ -934,12 +914,10 @@ mod tests {
             ),
         ];
 
-        for tt in error_tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
+        for (input, expected) in error_tests.iter() {
+            let evaluated = test_eval(input);
             if let Object::Error(message) = evaluated {
-                assert_eq!(message, expected)
+                assert_eq!(message, *expected)
             } else {
                 assert!(false, "object is not Error")
             }
@@ -948,9 +926,9 @@ mod tests {
 
     #[test]
     fn test_array_literals() {
-        let input = "[1, 2 * 2, 3 + 3]".to_string();
+        let input = "[1, 2 * 2, 3 + 3]";
 
-        let evaluated = test_eval(&input);
+        let evaluated = test_eval(input);
         if let Object::Array(result) = evaluated {
             assert_eq!(result.elements.len(), 3);
             for (r, i) in result.elements.iter().zip([1, 4, 6].iter()) {
@@ -977,20 +955,16 @@ mod tests {
             ("let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]", 2),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-
-            let evaluated = test_eval(&input);
-            assert_integer_object(&evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_integer_object(&evaluated, *expected);
         }
 
         let null_tests = ["[1, 2, 3][3]", "[1, 2, 3][-1]"];
 
         for tt in null_tests.iter() {
-            let input = tt.to_string();
-
-            let evaluated = test_eval(&input);
+            let input = tt;
+            let evaluated = test_eval(input);
             assert_null_object(evaluated);
         }
     }
@@ -1006,8 +980,7 @@ mod tests {
                 4: 4,
                 true: 5,
                 false: 6
-            }"#
-        .to_string();
+            }"#;
 
         let mut expected = HashMap::new();
         expected.insert("one".to_string().hash_key(), 1);
@@ -1017,7 +990,7 @@ mod tests {
         expected.insert(true.hash_key(), 5);
         expected.insert(false.hash_key(), 6);
 
-        let evaluated = test_eval(&input);
+        let evaluated = test_eval(input);
         if let Object::Hash(result) = evaluated {
             assert_eq!(result.pairs.len(), expected.len());
 
@@ -1040,23 +1013,21 @@ mod tests {
             ("{false: 5}[false]", 5),
         ];
 
-        for tt in tests.iter() {
-            let input = tt.0.to_string();
-            let expected = tt.1;
-            let evaluated = test_eval(&input);
-            assert_integer_object(&evaluated, expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            assert_integer_object(&evaluated, *expected);
         }
 
         let null_tests = [r#"{"foo": 5}["bar"]"#, r#"{}["foo"]"#];
 
         for tt in null_tests.iter() {
-            let input = tt.to_string();
-            let evaluated = test_eval(&input);
+            let input = tt;
+            let evaluated = test_eval(input);
             assert_null_object(evaluated);
         }
     }
 
-    fn test_eval(input: &String) -> Object {
+    fn test_eval(input: &str) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
