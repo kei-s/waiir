@@ -514,6 +514,7 @@ mod tests {
     use super::super::ast::{Expression, Statement};
     use super::{Lexer, Parser};
     use std::collections::HashMap;
+    use std::vec::Vec;
 
     #[test]
     fn test_let_statements() {
@@ -521,7 +522,7 @@ mod tests {
         test(vec![("let y = true;", "y", true)]);
         test(vec![("let foobar = y;", "foobar", "y".to_string())]);
 
-        fn test<T: AssertWithExpression>(tests: std::vec::Vec<(&str, &str, T)>) {
+        fn test<T: AssertWithExpression>(tests: Vec<(&str, &str, T)>) {
             for tt in tests {
                 let input = tt.0.to_string();
                 let expected_identifier = tt.1;
@@ -548,7 +549,7 @@ mod tests {
         test(vec![("return true;", true)]);
         test(vec![("return foobar", "foobar".to_string())]);
 
-        fn test<T: AssertWithExpression>(tests: std::vec::Vec<(&str, T)>) {
+        fn test<T: AssertWithExpression>(tests: Vec<(&str, T)>) {
             for tt in tests {
                 let input = tt.0.to_string();
                 let expected_value = tt.1;
@@ -623,7 +624,7 @@ mod tests {
         test(vec![("!5;", "!", 5), ("-15;", "-", 15)]);
         test(vec![("!true;", "!", true), ("!false;", "!", false)]);
 
-        fn test<T: AssertWithExpression>(tests: std::vec::Vec<(&str, &str, T)>) {
+        fn test<T: AssertWithExpression>(tests: Vec<(&str, &str, T)>) {
             for tt in tests {
                 let input = tt.0.to_string();
                 let expected_operator = tt.1;
@@ -671,9 +672,7 @@ mod tests {
             ("false == false", false, "==", false),
         ]);
 
-        fn test<T: AssertWithExpression, U: AssertWithExpression>(
-            tests: std::vec::Vec<(&str, T, &str, U)>,
-        ) {
+        fn test<T: AssertWithExpression, U: AssertWithExpression>(tests: Vec<(&str, T, &str, U)>) {
             for tt in tests {
                 let input = tt.0.to_string();
                 let expected_left_value = tt.1;
@@ -705,7 +704,7 @@ mod tests {
 
     #[test]
     fn test_operator_precedence_parsing() {
-        let tests = vec![
+        let tests = [
             ("-a * b", "((-a) * b)"),
             ("!-a", "(!(-a))"),
             ("a + b + c", "((a + b) + c)"),
@@ -749,7 +748,7 @@ mod tests {
             ),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
 
@@ -764,9 +763,9 @@ mod tests {
 
     #[test]
     fn test_boolean_expressions() {
-        let tests = vec![("true;", true), ("false;", false)];
+        let tests = [("true;", true), ("false;", false)];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
 
@@ -895,15 +894,15 @@ mod tests {
 
     #[test]
     fn test_function_parameter_parsing() {
-        let tests = vec![
+        let tests = [
             ("fn() {};", vec![]),
             ("fn(x) {};", vec!["x"]),
             ("fn(x, y, z) {};", vec!["x", "y", "z"]),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
-            let expected = tt.1;
+            let expected = &tt.1;
 
             let l = Lexer::new(&input);
             let mut p = Parser::new(l);

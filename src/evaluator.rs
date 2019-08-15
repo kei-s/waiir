@@ -567,7 +567,7 @@ mod tests {
 
     #[test]
     fn test_eval_integer_expression() {
-        let tests = vec![
+        let tests = [
             ("5", 5),
             ("10", 10),
             ("-5", -5),
@@ -585,7 +585,7 @@ mod tests {
             ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
@@ -595,7 +595,7 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests = vec![
+        let tests = [
             ("true", true),
             ("false", false),
             ("1 < 2", true),
@@ -608,7 +608,7 @@ mod tests {
             ("1 != 2", true),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
@@ -618,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_bang_operator() {
-        let tests = vec![
+        let tests = [
             ("!true", false),
             ("!false", true),
             ("!5", false),
@@ -636,7 +636,7 @@ mod tests {
             ("(1 > 2) == false", true),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
@@ -646,7 +646,7 @@ mod tests {
 
     #[test]
     fn test_if_else_expressions() {
-        let tests = vec![
+        let tests = [
             ("if (true) { 10 }", 10),
             ("if (1) { 10 }", 10),
             ("if (1 < 2) { 10 }", 10),
@@ -654,16 +654,16 @@ mod tests {
             ("if (1 < 2) { 10 } else { 20 }", 10),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
             assert_integer_object(&evaluated, expected);
         }
 
-        let nil_tests = vec!["if (false) { 10 }", "if (1 > 2) { 10 }"];
+        let nil_tests = ["if (false) { 10 }", "if (1 > 2) { 10 }"];
 
-        for input in nil_tests {
+        for input in nil_tests.iter() {
             let evaluated = test_eval(&input.to_string());
             assert_null_object(evaluated);
         }
@@ -671,7 +671,7 @@ mod tests {
 
     #[test]
     fn test_return_statements() {
-        let tests = vec![
+        let tests = [
             ("return 10;", 10),
             ("return 10; 9;", 10),
             ("return 2 * 5; 9;", 10),
@@ -710,7 +710,7 @@ mod tests {
             ),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
@@ -720,7 +720,7 @@ mod tests {
 
     #[test]
     fn test_error_handling() {
-        let tests = vec![
+        let tests = [
             ("5 + true;", "type mismatch: Integer(5) + Boolean(true)"),
             ("5 + true; 5;", "type mismatch: Integer(5) + Boolean(true)"),
             ("-true", "unknown operator: -Boolean(true)"),
@@ -757,7 +757,7 @@ mod tests {
             ),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
@@ -772,14 +772,14 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let tests = vec![
+        let tests = [
             ("let a = 5; a;", 5),
             ("let a = 5 * 5; a;", 25),
             ("let a = 5; let b = a; b;", 5),
             ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             assert_integer_object(&test_eval(&input), expected);
@@ -802,7 +802,7 @@ mod tests {
 
     #[test]
     fn test_function_application() {
-        let tests = vec![
+        let tests = [
             ("let identity = fn(x) { x; }; identity(5);", 5),
             ("let identity = fn(x) { return x; }; identity(5);", 5),
             ("let double = fn(x) { x * 2; }; double(5);", 10),
@@ -811,7 +811,7 @@ mod tests {
             ("fn(x) { x; }(5)", 5),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             assert_integer_object(&test_eval(&tt.0.to_string()), tt.1);
         }
     }
@@ -875,7 +875,7 @@ mod tests {
 
     #[test]
     fn test_builtin_functions() {
-        let tests = vec![
+        let tests = [
             ("len(\"\")", 0),
             ("len(\"four\")", 4),
             ("len(\"hello world\")", 11),
@@ -885,24 +885,24 @@ mod tests {
             ("last([1, 2, 3])", 3),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
             assert_integer_object(&evaluated, expected);
         }
 
-        let null_tests = vec!["first([])", "last([])", "rest([])"];
+        let null_tests = ["first([])", "last([])", "rest([])"];
 
-        for tt in null_tests {
+        for tt in null_tests.iter() {
             assert_null_object(test_eval(&tt.to_string()));
         }
 
-        let array_tests = vec![("rest([1, 2, 3])", vec![2, 3]), ("push([], 1)", vec![1])];
+        let array_tests = [("rest([1, 2, 3])", vec![2, 3]), ("push([], 1)", vec![1])];
 
-        for tt in array_tests {
+        for tt in array_tests.iter() {
             let input = tt.0.to_string();
-            let expected = tt.1;
+            let expected = &tt.1;
             let evaluated = test_eval(&input);
             if let Object::Array(array) = &evaluated {
                 assert_eq!(array.elements.len(), expected.len());
@@ -914,7 +914,7 @@ mod tests {
             }
         }
 
-        let error_tests = vec![
+        let error_tests = [
             ("len(1)", "argument to `len` not supported, got Integer(1)"),
             (
                 "len(\"one\", \"two\")",
@@ -934,7 +934,7 @@ mod tests {
             ),
         ];
 
-        for tt in error_tests {
+        for tt in error_tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
@@ -963,7 +963,7 @@ mod tests {
 
     #[test]
     fn test_array_index_expressions() {
-        let tests = vec![
+        let tests = [
             ("[1, 2, 3][0]", 1),
             ("[1, 2, 3][1]", 2),
             ("[1, 2, 3][2]", 3),
@@ -977,7 +977,7 @@ mod tests {
             ("let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]", 2),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
 
@@ -985,9 +985,9 @@ mod tests {
             assert_integer_object(&evaluated, expected);
         }
 
-        let null_tests = vec!["[1, 2, 3][3]", "[1, 2, 3][-1]"];
+        let null_tests = ["[1, 2, 3][3]", "[1, 2, 3][-1]"];
 
-        for tt in null_tests {
+        for tt in null_tests.iter() {
             let input = tt.to_string();
 
             let evaluated = test_eval(&input);
@@ -1032,7 +1032,7 @@ mod tests {
 
     #[test]
     fn test_hash_index_expressions() {
-        let tests = vec![
+        let tests = [
             (r#"{"foo": 5}["foo"]"#, 5),
             (r#"let key = "foo"; {"foo": 5}[key]"#, 5),
             ("{5: 5}[5]", 5),
@@ -1040,16 +1040,16 @@ mod tests {
             ("{false: 5}[false]", 5),
         ];
 
-        for tt in tests {
+        for tt in tests.iter() {
             let input = tt.0.to_string();
             let expected = tt.1;
             let evaluated = test_eval(&input);
             assert_integer_object(&evaluated, expected);
         }
 
-        let null_tests = vec![r#"{"foo": 5}["bar"]"#, r#"{}["foo"]"#];
+        let null_tests = [r#"{"foo": 5}["bar"]"#, r#"{}["foo"]"#];
 
-        for tt in null_tests {
+        for tt in null_tests.iter() {
             let input = tt.to_string();
             let evaluated = test_eval(&input);
             assert_null_object(evaluated);

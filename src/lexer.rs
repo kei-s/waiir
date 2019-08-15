@@ -23,7 +23,7 @@ impl Lexer {
                 '=' => {
                     if self.peek_char().is_some() && self.peek_char().unwrap() == &'=' {
                         self.read_char();
-                        let literal: String = vec![ch, self.ch.unwrap()].into_iter().collect();
+                        let literal: String = [ch, self.ch.unwrap()].into_iter().collect();
                         Token {
                             t: TokenType::Eq,
                             literal,
@@ -46,7 +46,7 @@ impl Lexer {
                 '!' => {
                     if self.peek_char().is_some() && self.peek_char().unwrap() == &'=' {
                         self.read_char();
-                        let literal: String = vec![ch, self.ch.unwrap()].into_iter().collect();
+                        let literal: String = [ch, self.ch.unwrap()].into_iter().collect();
                         Token {
                             t: TokenType::NotEq,
                             literal,
@@ -249,7 +249,7 @@ if (5 < 10) {
 {"foo": "bar"}"#
             .to_string();
 
-        let tests = vec![
+        let tests = [
             (TokenType::Let, "let"),
             (TokenType::Ident, "five"),
             (TokenType::Assign, "="),
@@ -344,7 +344,7 @@ if (5 < 10) {
 
         let mut l = Lexer::new(&input);
 
-        for tt in &tests {
+        for tt in tests.iter() {
             let tok = l.next().unwrap();
             assert_eq!(tok.t, tt.0);
             assert_eq!(tok.literal, tt.1);
