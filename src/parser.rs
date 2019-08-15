@@ -1,6 +1,7 @@
 use super::ast::*;
 use super::lexer::Lexer;
 use super::token::{Token, TokenType};
+use std::collections::BTreeMap;
 use std::fmt;
 
 #[derive(PartialEq, PartialOrd)]
@@ -163,6 +164,7 @@ impl Parser {
             TokenType::Function => Expression::FunctionLiteral(self.parse_function_literal()?),
             TokenType::String => Expression::StringLiteral(self.parse_string_literal()?),
             TokenType::LBracket => Expression::ArrayLiteral(self.parse_array_literal()?),
+            TokenType::LBrace => Expression::HashLiteral(self.parse_hash_literal()?),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -402,6 +404,40 @@ impl Parser {
         Ok(ArrayLiteral { elements })
     }
 
+    fn parse_hash_literal(&mut self) -> Result<HashLiteral, ParseError> {
+        let mut pairs = BTreeMap::new();
+
+        while !self.peek_token_is(&TokenType::RBrace) {
+            self.next_token();
+            let key = self.parse_expression(Precedence::Lowest)?;
+
+            if !self.expect_peek(&TokenType::Colon) {
+                return Err(ParseError {
+                    message: String::from("Missing Colon"),
+                });
+            }
+
+            self.next_token();
+            let value = self.parse_expression(Precedence::Lowest)?;
+
+            pairs.insert(key, value);
+
+            if !self.peek_token_is(&TokenType::RBrace) && !self.expect_peek(&TokenType::Comma) {
+                return Err(ParseError {
+                    message: String::from("Missing RBrace or Comma"),
+                });
+            }
+        }
+
+        if !self.expect_peek(&TokenType::RBrace) {
+            return Err(ParseError {
+                message: String::from("Missing RBrace"),
+            });
+        }
+
+        Ok(HashLiteral { pairs })
+    }
+
     fn next_token(&mut self) {
         self._cur_token = self._peek_token.take();
         self._peek_token = self.l.next();
@@ -472,6 +508,7 @@ impl Parser {
 mod tests {
     use super::super::ast::*;
     use super::{Lexer, Parser};
+    use std::collections::HashMap;
 
     #[test]
     fn test_let_statements() {
@@ -963,6 +1000,147 @@ mod tests {
                 assert_infix_expression(&index_exp.index, 1, "+", 1);
             } else {
                 assert!(false, "exp not ast::IndexExpression")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_empty_hash_literal() {
+        let input = "{}".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::HashLiteral(hash) = &stmt.expression {
+                assert_eq!(hash.pairs.len(), 0);
+            } else {
+                assert!(false, "exp is not ast::HashLiteral")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash_literal_string_keys() {
+        let input = r#"{"one": 1, "two": 2, "three": 3}"#.to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        let mut expected = HashMap::new();
+        expected.insert("one".to_string(), 1);
+        expected.insert("two".to_string(), 2);
+        expected.insert("three".to_string(), 3);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::HashLiteral(hash) = &stmt.expression {
+                assert_eq!(hash.pairs.len(), 3);
+                for (key, value) in &hash.pairs {
+                    if let Expression::StringLiteral(literal) = key {
+                        let expected_value = expected.get(&literal.value).unwrap();
+                        assert_integer_literal(value, *expected_value as i64);
+                    } else {
+                        assert!(false, "key is not ast::StringLiteral")
+                    }
+                }
+            } else {
+                assert!(false, "exp is not ast::HashLiteral")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash_literal_boolean_keys() {
+        let input = "{true: 1, false: 2}".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        let mut expected = HashMap::new();
+        expected.insert(true, 1);
+        expected.insert(false, 2);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::HashLiteral(hash) = &stmt.expression {
+                assert_eq!(hash.pairs.len(), 2);
+                for (key, value) in &hash.pairs {
+                    if let Expression::Boolean(literal) = key {
+                        let expected_value = expected.get(&literal.value).unwrap();
+                        assert_integer_literal(value, *expected_value as i64);
+                    } else {
+                        assert!(false, "key is not ast::Boolean")
+                    }
+                }
+            } else {
+                assert!(false, "exp is not ast::HashLiteral")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash_literal_integer_keys() {
+        let input = "{1: 1, 2: 2, 3: 3}".to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        let mut expected = HashMap::new();
+        expected.insert(1, 1);
+        expected.insert(2, 2);
+        expected.insert(3, 3);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::HashLiteral(hash) = &stmt.expression {
+                assert_eq!(hash.pairs.len(), 3);
+                for (key, value) in &hash.pairs {
+                    if let Expression::IntegerLiteral(literal) = key {
+                        let expected_value = expected.get(&literal.value).unwrap();
+                        assert_integer_literal(value, *expected_value as i64);
+                    } else {
+                        assert!(false, "key is not ast::Integer")
+                    }
+                }
+            } else {
+                assert!(false, "exp is not ast::HashLiteral")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash_literal_with_expressions() {
+        let input = r#"{"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}"#.to_string();
+
+        let l = Lexer::new(&input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+
+        let mut expected = HashMap::new();
+        expected.insert("one".to_string(), (0, "+", 1));
+        expected.insert("two".to_string(), (10, "-", 8));
+        expected.insert("three".to_string(), (15, "/", 5));
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::HashLiteral(hash) = &stmt.expression {
+                assert_eq!(hash.pairs.len(), 3);
+                for (key, value) in &hash.pairs {
+                    if let Expression::StringLiteral(literal) = key {
+                        let (left, operator, right) = expected.get(&literal.value).unwrap();
+                        assert_infix_expression(value, *left as i64, operator, *right as i64)
+                    } else {
+                        assert!(false, "key is not ast::StringLiteral")
+                    }
+                }
+            } else {
+                assert!(false, "exp is not ast::HashLiteral")
             }
         }
     }

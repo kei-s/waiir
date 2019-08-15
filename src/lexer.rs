@@ -110,6 +110,10 @@ impl Lexer {
                     t: TokenType::RBracket,
                     literal: ch.to_string(),
                 },
+                ':' => Token {
+                    t: TokenType::Colon,
+                    literal: ch.to_string(),
+                },
                 'a'..='z' | 'A'..='Z' | '_' => return Some(self.read_identifier()),
                 '0'..='9' => return Some(self.read_number()),
                 _ => Token {
@@ -241,7 +245,8 @@ if (5 < 10) {
 -a * b
 "foobar"
 "foo bar"
-[1,2];"#
+[1,2];
+{"foo": "bar"}"#
             .to_string();
 
         let tests = vec![
@@ -330,6 +335,11 @@ if (5 < 10) {
             (TokenType::Int, "2"),
             (TokenType::RBracket, "]"),
             (TokenType::Semicolon, ";"),
+            (TokenType::LBrace, "{"),
+            (TokenType::String, "foo"),
+            (TokenType::Colon, ":"),
+            (TokenType::String, "bar"),
+            (TokenType::RBrace, "}"),
         ];
 
         let mut l = Lexer::new(&input);

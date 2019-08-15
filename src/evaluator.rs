@@ -1,4 +1,5 @@
 use super::ast::*;
+use super::object::hash::hash_key_of;
 use super::object::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -119,6 +120,7 @@ impl_eval!(Expression => (self, env) {
         Expression::StringLiteral(exp) => exp.eval(env),
         Expression::ArrayLiteral(exp) => exp.eval(env),
         Expression::IndexExpression(exp) => exp.eval(env),
+        Expression::HashLiteral(exp) => exp.eval(env),
     }
 });
 
@@ -365,6 +367,9 @@ fn eval_index_expression(left: Object, index: Object) -> Object {
             return eval_array_index_expression(&array.elements, idx);
         }
     }
+    if let Object::Hash(hash) = &left {
+        return eval_hash_index_expression(hash, index);
+    }
     new_error(format!("index operator not supported: {:?}", left))
 }
 
@@ -375,6 +380,41 @@ fn eval_array_index_expression(elements: &Vec<Object>, idx: i64) -> Object {
         return NULL;
     }
     elements[idx as usize].clone()
+}
+
+impl_eval!(HashLiteral => (self, env) {
+    let mut pairs = HashMap::new();
+
+    for (key_node, value_node) in &self.pairs {
+        let key = key_node.eval(env);
+        if is_error(&key) {
+            return key;
+        }
+
+        let hashed = match hash_key_of(&key) {
+            Ok(k) => k,
+            Err(message) => return new_error(message),
+        };
+
+        let value = value_node.eval(env);
+
+        pairs.insert(hashed, HashPair{key, value});
+    }
+
+    Object::Hash(Hash{pairs})
+});
+
+fn eval_hash_index_expression(hash_object: &Hash, index: Object) -> Object {
+    let key = match hash_key_of(&index) {
+        Ok(k) => k,
+        Err(message) => return new_error(message),
+    };
+
+    if let Some(pair) = hash_object.pairs.get(&key) {
+        return pair.value.clone();
+    } else {
+        return NULL;
+    }
 }
 
 fn is_truthy(obj: Object) -> bool {
@@ -507,9 +547,11 @@ mod builtin {
 #[cfg(test)]
 mod tests {
     use super::super::lexer::Lexer;
+    use super::super::object::hash::Hashable;
     use super::super::object::*;
     use super::super::parser::Parser;
     use super::{Environment, Eval, NULL};
+    use std::collections::HashMap;
 
     #[test]
     fn test_eval_integer_expression() {
@@ -696,6 +738,10 @@ mod tests {
             (
                 "\"Hello\" - \"World\"",
                 "unknown operator: \"Hello\" - \"World\"",
+            ),
+            (
+                r#"{"name": "Monkey"}[fn(x) { x }];"#,
+                "unusable as hash key: fn(x) {x}",
             ),
         ];
 
@@ -936,6 +982,68 @@ mod tests {
             assert_null_object(evaluated);
         }
     }
+
+    #[test]
+    fn test_hash_literals() {
+        let input = r#"
+            let two = "two";
+            {
+                "one": 10 - 9,
+                two: 1 + 1,
+                "thr" + "ee": 6 / 2,
+                4: 4,
+                true: 5,
+                false: 6
+            }"#
+        .to_string();
+
+        let mut expected = HashMap::new();
+        expected.insert("one".to_string().hash_key(), 1);
+        expected.insert("two".to_string().hash_key(), 2);
+        expected.insert("three".to_string().hash_key(), 3);
+        expected.insert((4 as i64).hash_key(), 4);
+        expected.insert(true.hash_key(), 5);
+        expected.insert(false.hash_key(), 6);
+
+        let evaluated = test_eval(&input);
+        if let Object::Hash(result) = evaluated {
+            assert_eq!(result.pairs.len(), expected.len());
+
+            for (expected_key, expected_value) in expected.iter() {
+                let pair = result.pairs.get(expected_key).unwrap();
+                assert_integer_object(&pair.value, *expected_value as i64);
+            }
+        } else {
+            assert!(false, "Eval didn't return Hash")
+        }
+    }
+
+    #[test]
+    fn test_hash_index_expressions() {
+        let tests = vec![
+            (r#"{"foo": 5}["foo"]"#, 5),
+            (r#"let key = "foo"; {"foo": 5}[key]"#, 5),
+            ("{5: 5}[5]", 5),
+            ("{true: 5}[true]", 5),
+            ("{false: 5}[false]", 5),
+        ];
+
+        for tt in tests {
+            let input = tt.0.to_string();
+            let expected = tt.1;
+            let evaluated = test_eval(&input);
+            assert_integer_object(&evaluated, expected);
+        }
+
+        let null_tests = vec![r#"{"foo": 5}["bar"]"#, r#"{}["foo"]"#];
+
+        for tt in null_tests {
+            let input = tt.to_string();
+            let evaluated = test_eval(&input);
+            assert_null_object(evaluated);
+        }
+    }
+
     fn test_eval(input: &String) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
