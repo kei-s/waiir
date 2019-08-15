@@ -1,6 +1,10 @@
-use super::ast::*;
+use super::ast::{
+    ArrayLiteral, BlockStatement, Boolean, CallExpression, Expression, FunctionLiteral,
+    HashLiteral, Identifier, IfExpression, IndexExpression, InfixExpression, IntegerLiteral,
+    PrefixExpression, Program, Statement, StringLiteral,
+};
 use super::object::hash::hash_key_of;
-use super::object::*;
+use super::object::{Array, Builtin, Function, Hash, HashPair, Object};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -556,7 +560,7 @@ mod builtin {
 mod tests {
     use super::super::lexer::Lexer;
     use super::super::object::hash::Hashable;
-    use super::super::object::*;
+    use super::super::object::Object;
     use super::super::parser::Parser;
     use super::{Environment, Eval, NULL};
     use std::collections::HashMap;

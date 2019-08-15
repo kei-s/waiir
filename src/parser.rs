@@ -1,4 +1,9 @@
-use super::ast::*;
+use super::ast::{
+    ArrayLiteral, BlockStatement, Boolean, CallExpression, Expression, ExpressionStatement,
+    FunctionLiteral, HashLiteral, Identifier, IfExpression, IndexExpression, InfixExpression,
+    IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
+    StringLiteral,
+};
 use super::lexer::Lexer;
 use super::token::{Token, TokenType};
 use std::collections::BTreeMap;
@@ -506,7 +511,7 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use super::super::ast::*;
+    use super::super::ast::{Expression, Statement};
     use super::{Lexer, Parser};
     use std::collections::HashMap;
 

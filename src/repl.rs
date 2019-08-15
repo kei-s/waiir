@@ -1,7 +1,7 @@
-use super::evaluator::{Eval, Environment};
+use super::evaluator::{Environment, Eval};
 use super::{lexer, parser};
 use std::io;
-use std::io::prelude::*;
+use std::io::prelude::Write;
 
 pub fn start() {
     const PROMPT: &str = ">> ";

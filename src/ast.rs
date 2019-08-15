@@ -271,7 +271,7 @@ impl fmt::Display for HashLiteral {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement};
 
     #[test]
     fn test_string() {
