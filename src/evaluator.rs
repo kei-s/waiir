@@ -4,7 +4,7 @@ use super::ast::{
     PrefixExpression, Program, Statement, StringLiteral,
 };
 use super::object::hash::hash_key_of;
-use super::object::{Array, Builtin, Function, Hash, HashPair, Object};
+use super::object::{Array, Builtin, Function, Hash, HashPair, Object, Quote};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -288,6 +288,11 @@ impl_eval!(FunctionLiteral => (self, env) {
 });
 
 impl_eval!(CallExpression => (self, env) {
+    if let Expression::Identifier(identifier) = &*self.function {
+        if identifier.value == "quote" {
+            return quote(&self.arguments[0])
+        }
+    }
     let function = self.function.eval(env);
     if is_error(&function) {
         return function;
@@ -441,6 +446,10 @@ fn is_error(obj: &Object) -> bool {
     } else {
         false
     }
+}
+
+fn quote(node: &Expression) -> Object {
+    Object::Quote(Quote { node: node.clone() })
 }
 
 mod builtin {
@@ -1024,6 +1033,24 @@ mod tests {
             let input = tt;
             let evaluated = test_eval(input);
             assert_null_object(evaluated);
+        }
+    }
+
+    #[test]
+    fn test_quote() {
+        let tests = [
+            ("quote(5)", "5"),
+            ("quote(5 + 8)", "(5 + 8)"),
+            ("quote(foobar + barfoo)", "(foobar + barfoo)"),
+        ];
+
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            if let Object::Quote(quote) = evaluated {
+                assert_eq!(format!("{}", quote.node), expected as &str)
+            } else {
+                assert!(false, "expected Quote")
+            }
         }
     }
 

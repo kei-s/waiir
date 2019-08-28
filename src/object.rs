@@ -1,5 +1,5 @@
 use self::hash::HashKey;
-use super::ast::{BlockStatement, Identifier};
+use super::ast::{BlockStatement, Identifier, Expression};
 use super::enum_with_fmt;
 use super::evaluator::Environment;
 use std::cell::RefCell;
@@ -18,6 +18,7 @@ enum_with_fmt!(
         Array(Array),
         Hash(Hash),
         String(String),
+        Quote(Quote),
         => // custom format
         Error(String) => "Error: {}",
         ;=> // without data and custom format
@@ -99,6 +100,17 @@ impl fmt::Display for Hash {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Quote {
+    pub node: Expression,
+}
+
+impl fmt::Display for Quote {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "QUOTE({})", self.node)
     }
 }
 
