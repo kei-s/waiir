@@ -1054,6 +1054,25 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_quote_unquote() {
+        let tests = [
+            ("quote(unquote(4))", "4"),
+            ("quote(unquote(4 + 4))", "8"),
+            ("quote(8 + unquote(4 + 4))", "(8 + 8)"),
+            ("quote(unquote(4 + 4) + 8)", "(8 + 8)"),
+        ];
+
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input);
+            if let Object::Quote(quote) = evaluated {
+                assert_eq!(format!("{}", quote.node), expected as &str)
+            } else {
+                assert!(false, "expected Quote")
+            }
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
         let l = Lexer::new(input);
         let mut p = Parser::new(l);

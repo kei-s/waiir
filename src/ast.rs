@@ -2,6 +2,7 @@ use super::enum_with_fmt;
 use std::collections::BTreeMap;
 use std::fmt;
 
+#[derive(Debug, PartialEq)]
 pub struct Program {
     pub statements: Vec<Statement>,
 }
@@ -269,9 +270,45 @@ impl fmt::Display for HashLiteral {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Node {
+    Program(Program),
+    Statement(Statement),
+    Expression(Expression),
+}
+
+pub fn modify(node: Node, modifier: fn(Node) -> Node) -> Node {
+    match node {
+        Node::Program(mut program) => {
+            for i in 0..program.statements.len() {
+                let statement = program.statements.swap_remove(i);
+                if let Node::Statement(stmt) = modify(Node::Statement(statement), modifier) {
+                    program.statements.insert(i, stmt);
+                }
+            }
+            modifier(Node::Program(program))
+        }
+        Node::Statement(Statement::ExpressionStatement(node)) => {
+            if let Node::Expression(expression) =
+                modify(Node::Expression(node.expression), modifier)
+            {
+                modifier(Node::Statement(Statement::ExpressionStatement(
+                    ExpressionStatement { expression },
+                )))
+            } else {
+                unreachable!()
+            }
+        }
+        _ => modifier(node),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement};
+    use super::{
+        modify, Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Node,
+        Program, ReturnStatement, Statement,
+    };
 
     #[test]
     fn test_string() {
@@ -297,5 +334,49 @@ mod tests {
             format!("{}", program),
             "let myVar = anotherVar;return returnVar;"
         );
+    }
+
+    #[test]
+    fn test_modify() {
+        fn one() -> Expression {
+            Expression::IntegerLiteral(IntegerLiteral { value: 1 })
+        }
+        fn two() -> Expression {
+            Expression::IntegerLiteral(IntegerLiteral { value: 2 })
+        }
+        fn turn_one_into_two(node: Node) -> Node {
+            if let Node::Expression(Expression::IntegerLiteral(integer)) = &node {
+                if integer.value != 1 {
+                    return node;
+                }
+                Node::Expression(Expression::IntegerLiteral(IntegerLiteral { value: 2 }))
+            } else {
+                node
+            }
+        }
+
+        {
+            let input = Node::Expression(one());
+            let expected = Node::Expression(two());
+
+            let modified = modify(input, turn_one_into_two);
+            assert_eq!(modified, expected);
+        }
+
+        {
+            let input = Node::Program(Program {
+                statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: one(),
+                })],
+            });
+            let expected = Node::Program(Program {
+                statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: two(),
+                })],
+            });
+
+            let modified = modify(input, turn_one_into_two);
+            assert_eq!(modified, expected);
+        }
     }
 }
