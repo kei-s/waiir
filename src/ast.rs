@@ -274,11 +274,12 @@ impl fmt::Display for HashLiteral {
 pub enum Node {
     Program(Program),
     Statement(Statement),
+    BlockStatement(BlockStatement),
     Expression(Expression),
 }
 
-pub fn modify(node: Node, modifier: fn(Node) -> Node) -> Node {
-    match node {
+pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
+    match target {
         Node::Program(mut program) => {
             for i in 0..program.statements.len() {
                 let statement = program.statements.swap_remove(i);
@@ -287,6 +288,15 @@ pub fn modify(node: Node, modifier: fn(Node) -> Node) -> Node {
                 }
             }
             modifier(Node::Program(program))
+        }
+        Node::BlockStatement(mut node) => {
+            for i in 0..node.statements.len() {
+                let statement = node.statements.swap_remove(i);
+                if let Node::Statement(stmt) = modify(Node::Statement(statement), modifier) {
+                    node.statements.insert(i, stmt)
+                }
+            }
+            modifier(Node::BlockStatement(node))
         }
         Node::Statement(Statement::ExpressionStatement(node)) => {
             if let Node::Expression(expression) =
@@ -299,16 +309,154 @@ pub fn modify(node: Node, modifier: fn(Node) -> Node) -> Node {
                 unreachable!()
             }
         }
-        _ => modifier(node),
+        Node::Expression(Expression::InfixExpression(node)) => {
+            if let Node::Expression(left) = modify(Node::Expression(*node.left), modifier) {
+                if let Node::Expression(right) = modify(Node::Expression(*node.right), modifier) {
+                    modifier(Node::Expression(Expression::InfixExpression(
+                        InfixExpression {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                            operator: node.operator,
+                        },
+                    )))
+                } else {
+                    unreachable!()
+                }
+            } else {
+                unreachable!()
+            }
+        }
+        Node::Expression(Expression::PrefixExpression(node)) => {
+            if let Node::Expression(right) = modify(Node::Expression(*node.right), modifier) {
+                modifier(Node::Expression(Expression::PrefixExpression(
+                    PrefixExpression {
+                        right: Box::new(right),
+                        operator: node.operator,
+                    },
+                )))
+            } else {
+                unreachable!()
+            }
+        }
+        Node::Expression(Expression::IndexExpression(node)) => {
+            if let Node::Expression(left) = modify(Node::Expression(*node.left), modifier) {
+                if let Node::Expression(index) = modify(Node::Expression(*node.index), modifier) {
+                    modifier(Node::Expression(Expression::IndexExpression(
+                        IndexExpression {
+                            left: Box::new(left),
+                            index: Box::new(index),
+                        },
+                    )))
+                } else {
+                    unreachable!()
+                }
+            } else {
+                unreachable!()
+            }
+        }
+        Node::Expression(Expression::IfExpression(node)) => {
+            if let Node::Expression(condition) = modify(Node::Expression(*node.condition), modifier)
+            {
+                if let Node::BlockStatement(consequence) =
+                    modify(Node::BlockStatement(*node.consequence), modifier)
+                {
+                    if node.alternative.is_some() {
+                        if let Node::BlockStatement(alternative) =
+                            modify(Node::BlockStatement(*node.alternative.unwrap()), modifier)
+                        {
+                            modifier(Node::Expression(Expression::IfExpression(IfExpression {
+                                condition: Box::new(condition),
+                                consequence: Box::new(consequence),
+                                alternative: Some(Box::new(alternative)),
+                            })))
+                        } else {
+                            unreachable!()
+                        }
+                    } else {
+                        modifier(Node::Expression(Expression::IfExpression(IfExpression {
+                            condition: Box::new(condition),
+                            consequence: Box::new(consequence),
+                            alternative: None,
+                        })))
+                    }
+                } else {
+                    unreachable!()
+                }
+            } else {
+                unreachable!()
+            }
+        }
+        Node::Expression(Expression::FunctionLiteral(mut node)) => {
+            for i in 0..node.parameters.len() {
+                let identifier = node.parameters.swap_remove(i);
+                if let Node::Expression(Expression::Identifier(ident)) = modify(
+                    Node::Expression(Expression::Identifier(identifier)),
+                    modifier,
+                ) {
+                    node.parameters.insert(i, ident);
+                }
+            }
+            if let Node::BlockStatement(body) = modify(Node::BlockStatement(*node.body), modifier) {
+                modifier(Node::Expression(Expression::FunctionLiteral(
+                    FunctionLiteral {
+                        parameters: node.parameters,
+                        body: Box::new(body),
+                    },
+                )))
+            } else {
+                unreachable!()
+            }
+        }
+        Node::Expression(Expression::ArrayLiteral(mut node)) => {
+            for i in 0..node.elements.len() {
+                let element = node.elements.swap_remove(i);
+                if let Node::Expression(elem) = modify(Node::Expression(element), modifier) {
+                    node.elements.insert(i, elem);
+                }
+            }
+            modifier(Node::Expression(Expression::ArrayLiteral(node)))
+        }
+        Node::Expression(Expression::HashLiteral(node)) => {
+            let mut new_pairs = BTreeMap::new();
+            for (key, value) in node.pairs {
+                if let Node::Expression(k) = modify(Node::Expression(key), modifier) {
+                    if let Node::Expression(v) = modify(Node::Expression(value), modifier) {
+                        new_pairs.insert(k, v);
+                    }
+                }
+            }
+            modifier(Node::Expression(Expression::HashLiteral(HashLiteral{
+                pairs: new_pairs
+            })))
+        }
+        Node::Statement(Statement::ReturnStatement(node)) => {
+            if let Node::Expression(return_value) =
+                modify(Node::Expression(node.return_value), modifier)
+            {
+                modifier(Node::Statement(Statement::ReturnStatement(
+                    ReturnStatement { return_value },
+                )))
+            } else {
+                unreachable!()
+            }
+        }
+        Node::Statement(Statement::LetStatement(node)) => {
+            if let Node::Expression(value) = modify(Node::Expression(node.value), modifier) {
+                modifier(Node::Statement(Statement::LetStatement(LetStatement {
+                    name: node.name,
+                    value,
+                })))
+            } else {
+                unreachable!()
+            }
+        }
+        _ => modifier(target),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        modify, Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Node,
-        Program, ReturnStatement, Statement,
-    };
+    use super::*;
 
     #[test]
     fn test_string() {
@@ -355,26 +503,157 @@ mod tests {
             }
         }
 
-        {
-            let input = Node::Expression(one());
-            let expected = Node::Expression(two());
+        let mut input_map = BTreeMap::new();
+        input_map.insert(one(), one());
+        input_map.insert(one(), one());
+        let mut expected_map = BTreeMap::new();
+        expected_map.insert(two(), two());
+        expected_map.insert(two(), two());
 
-            let modified = modify(input, turn_one_into_two);
-            assert_eq!(modified, expected);
-        }
+        let mut tests = vec![
+            (Node::Expression(one()), Node::Expression(two())),
+            (
+                Node::Program(Program {
+                    statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                        expression: one(),
+                    })],
+                }),
+                Node::Program(Program {
+                    statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                        expression: two(),
+                    })],
+                }),
+            ),
+            (
+                Node::Expression(Expression::InfixExpression(InfixExpression {
+                    left: Box::new(one()),
+                    operator: "+".to_string(),
+                    right: Box::new(two()),
+                })),
+                Node::Expression(Expression::InfixExpression(InfixExpression {
+                    left: Box::new(two()),
+                    operator: "+".to_string(),
+                    right: Box::new(two()),
+                })),
+            ),
+            (
+                Node::Expression(Expression::InfixExpression(InfixExpression {
+                    left: Box::new(two()),
+                    operator: "+".to_string(),
+                    right: Box::new(one()),
+                })),
+                Node::Expression(Expression::InfixExpression(InfixExpression {
+                    left: Box::new(two()),
+                    operator: "+".to_string(),
+                    right: Box::new(two()),
+                })),
+            ),
+            (
+                Node::Expression(Expression::PrefixExpression(PrefixExpression {
+                    operator: "-".to_string(),
+                    right: Box::new(one()),
+                })),
+                Node::Expression(Expression::PrefixExpression(PrefixExpression {
+                    operator: "-".to_string(),
+                    right: Box::new(two()),
+                })),
+            ),
+            (
+                Node::Expression(Expression::IndexExpression(IndexExpression {
+                    left: Box::new(one()),
+                    index: Box::new(one()),
+                })),
+                Node::Expression(Expression::IndexExpression(IndexExpression {
+                    left: Box::new(two()),
+                    index: Box::new(two()),
+                })),
+            ),
+            (
+                Node::Expression(Expression::IfExpression(IfExpression {
+                    condition: Box::new(one()),
+                    consequence: Box::new(BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                            expression: one(),
+                        })],
+                    }),
+                    alternative: Some(Box::new(BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                            expression: one(),
+                        })],
+                    })),
+                })),
+                Node::Expression(Expression::IfExpression(IfExpression {
+                    condition: Box::new(two()),
+                    consequence: Box::new(BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                            expression: two(),
+                        })],
+                    }),
+                    alternative: Some(Box::new(BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                            expression: two(),
+                        })],
+                    })),
+                })),
+            ),
+            (
+                Node::Statement(Statement::ReturnStatement(ReturnStatement {
+                    return_value: one(),
+                })),
+                Node::Statement(Statement::ReturnStatement(ReturnStatement {
+                    return_value: two(),
+                })),
+            ),
+            (
+                Node::Statement(Statement::LetStatement(LetStatement {
+                    name: Identifier {
+                        value: "value".to_string(),
+                    },
+                    value: one(),
+                })),
+                Node::Statement(Statement::LetStatement(LetStatement {
+                    name: Identifier {
+                        value: "value".to_string(),
+                    },
+                    value: two(),
+                })),
+            ),
+            (
+                Node::Expression(Expression::FunctionLiteral(FunctionLiteral {
+                    parameters: vec![],
+                    body: Box::new(BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                            expression: one(),
+                        })],
+                    }),
+                })),
+                Node::Expression(Expression::FunctionLiteral(FunctionLiteral {
+                    parameters: vec![],
+                    body: Box::new(BlockStatement {
+                        statements: vec![Statement::ExpressionStatement(ExpressionStatement {
+                            expression: two(),
+                        })],
+                    }),
+                })),
+            ),
+            (
+                Node::Expression(Expression::ArrayLiteral(ArrayLiteral {
+                    elements: vec![one(), one()],
+                })),
+                Node::Expression(Expression::ArrayLiteral(ArrayLiteral {
+                    elements: vec![two(), two()],
+                })),
+            ),
+            (
+                Node::Expression(Expression::HashLiteral(HashLiteral { pairs: input_map })),
+                Node::Expression(Expression::HashLiteral(HashLiteral {
+                    pairs: expected_map,
+                })),
+            ),
+        ];
 
-        {
-            let input = Node::Program(Program {
-                statements: vec![Statement::ExpressionStatement(ExpressionStatement {
-                    expression: one(),
-                })],
-            });
-            let expected = Node::Program(Program {
-                statements: vec![Statement::ExpressionStatement(ExpressionStatement {
-                    expression: two(),
-                })],
-            });
-
+        while !tests.is_empty() {
+            let (input, expected) = tests.pop().unwrap();
             let modified = modify(input, turn_one_into_two);
             assert_eq!(modified, expected);
         }
