@@ -125,6 +125,7 @@ impl_eval!(Expression => (self, env) {
         Expression::ArrayLiteral(exp) => exp.eval(env),
         Expression::IndexExpression(exp) => exp.eval(env),
         Expression::HashLiteral(exp) => exp.eval(env),
+        _ => unimplemented!()
     }
 });
 

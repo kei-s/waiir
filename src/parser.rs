@@ -1,8 +1,8 @@
 use super::ast::{
     ArrayLiteral, BlockStatement, Boolean, CallExpression, Expression, ExpressionStatement,
     FunctionLiteral, HashLiteral, Identifier, IfExpression, IndexExpression, InfixExpression,
-    IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
-    StringLiteral,
+    IntegerLiteral, LetStatement, MacroLiteral, PrefixExpression, Program, ReturnStatement,
+    Statement, StringLiteral,
 };
 use super::lexer::Lexer;
 use super::token::{Token, TokenType};
@@ -170,6 +170,7 @@ impl Parser {
             TokenType::String => Expression::StringLiteral(self.parse_string_literal()?),
             TokenType::LBracket => Expression::ArrayLiteral(self.parse_array_literal()?),
             TokenType::LBrace => Expression::HashLiteral(self.parse_hash_literal()?),
+            TokenType::Macro => Expression::MacroLiteral(self.parse_macro_literal()?),
             _ => {
                 return Err(ParseError {
                     message: String::from("not implemented"),
@@ -443,6 +444,28 @@ impl Parser {
         Ok(HashLiteral { pairs })
     }
 
+    fn parse_macro_literal(&mut self) -> Result<MacroLiteral, ParseError> {
+        if !self.expect_peek(&TokenType::LParen) {
+            return Err(ParseError {
+                message: String::from("Missing LParen"),
+            });
+        }
+
+        let parameters = self.parse_function_parameters()?;
+
+        if !self.expect_peek(&TokenType::LBrace) {
+            return Err(ParseError {
+                message: String::from("Missing LBrace"),
+            });
+        }
+
+        let body = self.parse_block_statement()?;
+
+        Ok(MacroLiteral {
+            parameters,
+            body: Box::new(body),
+        })
+    }
     fn next_token(&mut self) {
         self._cur_token = self._peek_token.take();
         self._peek_token = self.l.next();
@@ -1121,6 +1144,46 @@ mod tests {
             } else {
                 assert!(false, "exp is not ast::HashLiteral")
             }
+        }
+    }
+
+    #[test]
+    fn test_macro_literal_parsing() {
+        let input = "macro(x, y) { x + y; }";
+
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parse_errors(p);
+        assert_eq!(program.statements.len(), 1);
+
+        if let Statement::ExpressionStatement(stmt) = &program.statements[0] {
+            if let Expression::MacroLiteral(macro_literal) = &stmt.expression {
+                assert_eq!(macro_literal.parameters.len(), 2);
+                assert_eq!(macro_literal.parameters[0].value, "x".to_string());
+                assert_eq!(format!("{}", macro_literal.parameters[0].value), "x");
+                assert_eq!(macro_literal.parameters[1].value, "y".to_string());
+                assert_eq!(format!("{}", macro_literal.parameters[1].value), "y");
+                assert_eq!(macro_literal.body.statements.len(), 1);
+                if let Statement::ExpressionStatement(body_stmt) = &macro_literal.body.statements[0]
+                {
+                    assert_infix_expression(
+                        &body_stmt.expression,
+                        "x".to_string(),
+                        "+",
+                        "y".to_string(),
+                    )
+                } else {
+                    assert!(false, "macro body stmt is not ast::ExpressionStatement")
+                }
+            } else {
+                assert!(false, "stmt.expression is not ast::MacroLiteral")
+            }
+        } else {
+            assert!(
+                false,
+                "program.statements[0] is not ast::ExpressionStatement"
+            )
         }
     }
 

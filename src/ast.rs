@@ -87,6 +87,7 @@ enum_with_fmt!(
         ArrayLiteral(ArrayLiteral),
         IndexExpression(IndexExpression),
         HashLiteral(HashLiteral),
+        MacroLiteral(MacroLiteral),
     }
 );
 
@@ -268,6 +269,27 @@ impl fmt::Display for HashLiteral {
                 .map(|(k, v)| format!("{}: {}", k, v))
                 .collect::<Vec<_>>()
                 .join(", ")
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct MacroLiteral {
+    pub parameters: Vec<Identifier>,
+    pub body: Box<BlockStatement>,
+}
+
+impl fmt::Display for MacroLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "macro({}) {}",
+            self.parameters
+                .iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.body
         )
     }
 }
