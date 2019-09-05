@@ -481,6 +481,8 @@ fn eval_unquote_calls(quoted: &Expression, env: &mut Rc<RefCell<Environment>>) -
 fn convert_object_to_ast_node(obj: Object) -> Expression {
     match obj {
         Object::Integer(int) => Expression::IntegerLiteral(IntegerLiteral { value: int }),
+        Object::Boolean(boolean) => Expression::Boolean(Boolean { value: boolean }),
+        Object::Quote(quote) => quote.node,
         _ => unimplemented!(),
     }
 }
@@ -1107,6 +1109,14 @@ mod tests {
             ("quote(unquote(4 + 4) + 8)", "(8 + 8)"),
             ("let foobar = 8; quote(foobar)", "foobar"),
             ("let foobar = 8; quote(unquote(foobar))", "8"),
+            ("quote(unquote(true))", "true"),
+            ("quote(unquote(true == false))", "false"),
+            ("quote(unquote(quote(4 + 4)))", "(4 + 4)"),
+            (
+                r#"let quotedInfixExpression = quote(4 + 4);
+            quote(unquote(4 + 4) + unquote(quotedInfixExpression))"#,
+                "(8 + (4 + 4))",
+            ),
         ];
 
         for (input, expected) in tests.iter() {
