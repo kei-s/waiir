@@ -1,6 +1,8 @@
 use super::enum_with_fmt;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
 pub struct Program {
@@ -278,31 +280,35 @@ pub enum Node {
     Expression(Expression),
 }
 
-pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
+pub fn modify<P: FnMut(Node) -> Node>(target: Node, modifier: Rc<RefCell<P>>) -> Node {
     match target {
         Node::Program(mut program) => {
             for i in 0..program.statements.len() {
                 let statement = program.statements.swap_remove(i);
-                if let Node::Statement(stmt) = modify(Node::Statement(statement), modifier) {
+                if let Node::Statement(stmt) =
+                    modify(Node::Statement(statement), Rc::clone(&modifier))
+                {
                     program.statements.insert(i, stmt);
                 }
             }
-            modifier(Node::Program(program))
+            (&mut *modifier.borrow_mut())(Node::Program(program))
         }
         Node::BlockStatement(mut node) => {
             for i in 0..node.statements.len() {
                 let statement = node.statements.swap_remove(i);
-                if let Node::Statement(stmt) = modify(Node::Statement(statement), modifier) {
+                if let Node::Statement(stmt) =
+                    modify(Node::Statement(statement), Rc::clone(&modifier))
+                {
                     node.statements.insert(i, stmt)
                 }
             }
-            modifier(Node::BlockStatement(node))
+            (&mut *modifier.borrow_mut())(Node::BlockStatement(node))
         }
         Node::Statement(Statement::ExpressionStatement(node)) => {
             if let Node::Expression(expression) =
-                modify(Node::Expression(node.expression), modifier)
+                modify(Node::Expression(node.expression), Rc::clone(&modifier))
             {
-                modifier(Node::Statement(Statement::ExpressionStatement(
+                (&mut *modifier.borrow_mut())(Node::Statement(Statement::ExpressionStatement(
                     ExpressionStatement { expression },
                 )))
             } else {
@@ -310,9 +316,13 @@ pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
             }
         }
         Node::Expression(Expression::InfixExpression(node)) => {
-            if let Node::Expression(left) = modify(Node::Expression(*node.left), modifier) {
-                if let Node::Expression(right) = modify(Node::Expression(*node.right), modifier) {
-                    modifier(Node::Expression(Expression::InfixExpression(
+            if let Node::Expression(left) =
+                modify(Node::Expression(*node.left), Rc::clone(&modifier))
+            {
+                if let Node::Expression(right) =
+                    modify(Node::Expression(*node.right), Rc::clone(&modifier))
+                {
+                    (&mut *modifier.borrow_mut())(Node::Expression(Expression::InfixExpression(
                         InfixExpression {
                             left: Box::new(left),
                             right: Box::new(right),
@@ -327,8 +337,10 @@ pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
             }
         }
         Node::Expression(Expression::PrefixExpression(node)) => {
-            if let Node::Expression(right) = modify(Node::Expression(*node.right), modifier) {
-                modifier(Node::Expression(Expression::PrefixExpression(
+            if let Node::Expression(right) =
+                modify(Node::Expression(*node.right), Rc::clone(&modifier))
+            {
+                (&mut *modifier.borrow_mut())(Node::Expression(Expression::PrefixExpression(
                     PrefixExpression {
                         right: Box::new(right),
                         operator: node.operator,
@@ -339,9 +351,13 @@ pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
             }
         }
         Node::Expression(Expression::IndexExpression(node)) => {
-            if let Node::Expression(left) = modify(Node::Expression(*node.left), modifier) {
-                if let Node::Expression(index) = modify(Node::Expression(*node.index), modifier) {
-                    modifier(Node::Expression(Expression::IndexExpression(
+            if let Node::Expression(left) =
+                modify(Node::Expression(*node.left), Rc::clone(&modifier))
+            {
+                if let Node::Expression(index) =
+                    modify(Node::Expression(*node.index), Rc::clone(&modifier))
+                {
+                    (&mut *modifier.borrow_mut())(Node::Expression(Expression::IndexExpression(
                         IndexExpression {
                             left: Box::new(left),
                             index: Box::new(index),
@@ -355,29 +371,36 @@ pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
             }
         }
         Node::Expression(Expression::IfExpression(node)) => {
-            if let Node::Expression(condition) = modify(Node::Expression(*node.condition), modifier)
+            if let Node::Expression(condition) =
+                modify(Node::Expression(*node.condition), Rc::clone(&modifier))
             {
-                if let Node::BlockStatement(consequence) =
-                    modify(Node::BlockStatement(*node.consequence), modifier)
-                {
+                if let Node::BlockStatement(consequence) = modify(
+                    Node::BlockStatement(*node.consequence),
+                    Rc::clone(&modifier),
+                ) {
                     if node.alternative.is_some() {
-                        if let Node::BlockStatement(alternative) =
-                            modify(Node::BlockStatement(*node.alternative.unwrap()), modifier)
-                        {
-                            modifier(Node::Expression(Expression::IfExpression(IfExpression {
-                                condition: Box::new(condition),
-                                consequence: Box::new(consequence),
-                                alternative: Some(Box::new(alternative)),
-                            })))
+                        if let Node::BlockStatement(alternative) = modify(
+                            Node::BlockStatement(*node.alternative.unwrap()),
+                            Rc::clone(&modifier),
+                        ) {
+                            (&mut *modifier.borrow_mut())(Node::Expression(
+                                Expression::IfExpression(IfExpression {
+                                    condition: Box::new(condition),
+                                    consequence: Box::new(consequence),
+                                    alternative: Some(Box::new(alternative)),
+                                }),
+                            ))
                         } else {
                             unreachable!()
                         }
                     } else {
-                        modifier(Node::Expression(Expression::IfExpression(IfExpression {
-                            condition: Box::new(condition),
-                            consequence: Box::new(consequence),
-                            alternative: None,
-                        })))
+                        (&mut *modifier.borrow_mut())(Node::Expression(Expression::IfExpression(
+                            IfExpression {
+                                condition: Box::new(condition),
+                                consequence: Box::new(consequence),
+                                alternative: None,
+                            },
+                        )))
                     }
                 } else {
                     unreachable!()
@@ -391,13 +414,15 @@ pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
                 let identifier = node.parameters.swap_remove(i);
                 if let Node::Expression(Expression::Identifier(ident)) = modify(
                     Node::Expression(Expression::Identifier(identifier)),
-                    modifier,
+                    Rc::clone(&modifier),
                 ) {
                     node.parameters.insert(i, ident);
                 }
             }
-            if let Node::BlockStatement(body) = modify(Node::BlockStatement(*node.body), modifier) {
-                modifier(Node::Expression(Expression::FunctionLiteral(
+            if let Node::BlockStatement(body) =
+                modify(Node::BlockStatement(*node.body), Rc::clone(&modifier))
+            {
+                (&mut *modifier.borrow_mut())(Node::Expression(Expression::FunctionLiteral(
                     FunctionLiteral {
                         parameters: node.parameters,
                         body: Box::new(body),
@@ -410,30 +435,34 @@ pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
         Node::Expression(Expression::ArrayLiteral(mut node)) => {
             for i in 0..node.elements.len() {
                 let element = node.elements.swap_remove(i);
-                if let Node::Expression(elem) = modify(Node::Expression(element), modifier) {
+                if let Node::Expression(elem) =
+                    modify(Node::Expression(element), Rc::clone(&modifier))
+                {
                     node.elements.insert(i, elem);
                 }
             }
-            modifier(Node::Expression(Expression::ArrayLiteral(node)))
+            (&mut *modifier.borrow_mut())(Node::Expression(Expression::ArrayLiteral(node)))
         }
         Node::Expression(Expression::HashLiteral(node)) => {
             let mut new_pairs = BTreeMap::new();
             for (key, value) in node.pairs {
-                if let Node::Expression(k) = modify(Node::Expression(key), modifier) {
-                    if let Node::Expression(v) = modify(Node::Expression(value), modifier) {
+                if let Node::Expression(k) = modify(Node::Expression(key), Rc::clone(&modifier)) {
+                    if let Node::Expression(v) =
+                        modify(Node::Expression(value), Rc::clone(&modifier))
+                    {
                         new_pairs.insert(k, v);
                     }
                 }
             }
-            modifier(Node::Expression(Expression::HashLiteral(HashLiteral{
-                pairs: new_pairs
+            (&mut *modifier.borrow_mut())(Node::Expression(Expression::HashLiteral(HashLiteral {
+                pairs: new_pairs,
             })))
         }
         Node::Statement(Statement::ReturnStatement(node)) => {
             if let Node::Expression(return_value) =
-                modify(Node::Expression(node.return_value), modifier)
+                modify(Node::Expression(node.return_value), Rc::clone(&modifier))
             {
-                modifier(Node::Statement(Statement::ReturnStatement(
+                (&mut *modifier.borrow_mut())(Node::Statement(Statement::ReturnStatement(
                     ReturnStatement { return_value },
                 )))
             } else {
@@ -441,16 +470,20 @@ pub fn modify(target: Node, modifier: fn(Node) -> Node) -> Node {
             }
         }
         Node::Statement(Statement::LetStatement(node)) => {
-            if let Node::Expression(value) = modify(Node::Expression(node.value), modifier) {
-                modifier(Node::Statement(Statement::LetStatement(LetStatement {
-                    name: node.name,
-                    value,
-                })))
+            if let Node::Expression(value) =
+                modify(Node::Expression(node.value), Rc::clone(&modifier))
+            {
+                (&mut *modifier.borrow_mut())(Node::Statement(Statement::LetStatement(
+                    LetStatement {
+                        name: node.name,
+                        value,
+                    },
+                )))
             } else {
                 unreachable!()
             }
         }
-        _ => modifier(target),
+        _ => (&mut *modifier.borrow_mut())(target),
     }
 }
 
@@ -492,7 +525,7 @@ mod tests {
         fn two() -> Expression {
             Expression::IntegerLiteral(IntegerLiteral { value: 2 })
         }
-        fn turn_one_into_two(node: Node) -> Node {
+        let turn_one_into_two = |node: Node| -> Node {
             if let Node::Expression(Expression::IntegerLiteral(integer)) = &node {
                 if integer.value != 1 {
                     return node;
@@ -501,7 +534,7 @@ mod tests {
             } else {
                 node
             }
-        }
+        };
 
         let mut input_map = BTreeMap::new();
         input_map.insert(one(), one());
@@ -654,7 +687,7 @@ mod tests {
 
         while !tests.is_empty() {
             let (input, expected) = tests.pop().unwrap();
-            let modified = modify(input, turn_one_into_two);
+            let modified = modify(input, Rc::new(RefCell::new(turn_one_into_two)));
             assert_eq!(modified, expected);
         }
     }

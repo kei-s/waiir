@@ -1,6 +1,6 @@
 use super::ast::{
-    ArrayLiteral, BlockStatement, Boolean, CallExpression, Expression, FunctionLiteral,
-    HashLiteral, Identifier, IfExpression, IndexExpression, InfixExpression, IntegerLiteral,
+    modify, ArrayLiteral, BlockStatement, Boolean, CallExpression, Expression, FunctionLiteral,
+    HashLiteral, Identifier, IfExpression, IndexExpression, InfixExpression, IntegerLiteral, Node,
     PrefixExpression, Program, Statement, StringLiteral,
 };
 use super::object::hash::hash_key_of;
@@ -290,7 +290,7 @@ impl_eval!(FunctionLiteral => (self, env) {
 impl_eval!(CallExpression => (self, env) {
     if let Expression::Identifier(identifier) = &*self.function {
         if identifier.value == "quote" {
-            return quote(&self.arguments[0])
+            return quote(&self.arguments[0], env)
         }
     }
     let function = self.function.eval(env);
@@ -448,8 +448,52 @@ fn is_error(obj: &Object) -> bool {
     }
 }
 
-fn quote(node: &Expression) -> Object {
-    Object::Quote(Quote { node: node.clone() })
+fn quote(node: &Expression, env: &mut Rc<RefCell<Environment>>) -> Object {
+    let n = eval_unquote_calls(node, env);
+    Object::Quote(Quote { node: n })
+}
+
+fn eval_unquote_calls(quoted: &Expression, env: &mut Rc<RefCell<Environment>>) -> Expression {
+    if let Node::Expression(exp) = modify(
+        Node::Expression(quoted.clone()),
+        Rc::new(RefCell::new(|node: Node| -> Node {
+            if !is_unquote_call(&node) {
+                return node;
+            }
+
+            if let Node::Expression(Expression::CallExpression(call)) = &node {
+                if call.arguments.len() != 1 {
+                    return node;
+                }
+                let unquoted = call.arguments[0].eval(env);
+                Node::Expression(convert_object_to_ast_node(unquoted))
+            } else {
+                return node;
+            }
+        })),
+    ) {
+        exp
+    } else {
+        unreachable!()
+    }
+}
+
+fn convert_object_to_ast_node(obj: Object) -> Expression {
+    match obj {
+        Object::Integer(int) => Expression::IntegerLiteral(IntegerLiteral { value: int }),
+        _ => unimplemented!(),
+    }
+}
+
+fn is_unquote_call(node: &Node) -> bool {
+    if let Node::Expression(Expression::CallExpression(call_expression)) = node {
+        if let Expression::Identifier(identifier) = &*call_expression.function {
+            return identifier.value == "unquote";
+        }
+        false
+    } else {
+        false
+    }
 }
 
 mod builtin {
@@ -1061,6 +1105,8 @@ mod tests {
             ("quote(unquote(4 + 4))", "8"),
             ("quote(8 + unquote(4 + 4))", "(8 + 8)"),
             ("quote(unquote(4 + 4) + 8)", "(8 + 8)"),
+            ("let foobar = 8; quote(foobar)", "foobar"),
+            ("let foobar = 8; quote(unquote(foobar))", "8"),
         ];
 
         for (input, expected) in tests.iter() {
