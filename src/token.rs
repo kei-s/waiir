@@ -44,6 +44,8 @@ pub enum TokenType {
     RBracket, // ]
 
     Colon, // :
+
+    Macro, // macro
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -61,6 +63,7 @@ pub fn lookup_ident(literal: &str) -> TokenType {
         "if" => TokenType::If,
         "else" => TokenType::Else,
         "return" => TokenType::Return,
+        "macro" => TokenType::Macro,
         _ => TokenType::Ident,
     }
 }

@@ -246,7 +246,8 @@ if (5 < 10) {
 "foobar"
 "foo bar"
 [1,2];
-{"foo": "bar"}"#;
+{"foo": "bar"}
+macro(x, y) { x + y; };"#;
 
         let tests = [
             (TokenType::Let, "let"),
@@ -339,6 +340,19 @@ if (5 < 10) {
             (TokenType::Colon, ":"),
             (TokenType::String, "bar"),
             (TokenType::RBrace, "}"),
+            (TokenType::Macro, "macro"),
+            (TokenType::LParen, "("),
+            (TokenType::Ident, "x"),
+            (TokenType::Comma, ","),
+            (TokenType::Ident, "y"),
+            (TokenType::RParen, ")"),
+            (TokenType::LBrace, "{"),
+            (TokenType::Ident, "x"),
+            (TokenType::Plus, "+"),
+            (TokenType::Ident, "y"),
+            (TokenType::Semicolon, ";"),
+            (TokenType::RBrace, "}"),
+            (TokenType::Semicolon, ";"),
         ];
 
         let mut l = Lexer::new(input);
