@@ -511,7 +511,13 @@ pub fn modify<P: FnMut(Node) -> Node>(target: Node, modifier: Rc<RefCell<P>>) ->
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        modify, ArrayLiteral, BTreeMap, BlockStatement, Expression, ExpressionStatement,
+        FunctionLiteral, HashLiteral, Identifier, IfExpression, IndexExpression, InfixExpression,
+        IntegerLiteral, LetStatement, Node, PrefixExpression, Program, ReturnStatement, Statement,
+    };
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     #[test]
     fn test_string() {
