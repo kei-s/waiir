@@ -4,7 +4,7 @@ use super::ast::{
     PrefixExpression, Program, Statement, StringLiteral,
 };
 use super::object::hash::hash_key_of;
-use super::object::{Array, Builtin, Function, Hash, HashPair, Object, Quote};
+use super::object::{Array, Builtin, Function, Hash, HashPair, Macro, Object, Quote};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -499,6 +499,50 @@ fn is_unquote_call(node: &Node) -> bool {
     }
 }
 
+fn define_macros(program: &mut Program, env: Rc<RefCell<Environment>>) {
+    let mut definition = vec![];
+    for (i, statement) in program.statements.iter().enumerate() {
+        if is_macro_definition(statement) {
+            add_macro(statement, Rc::clone(&env));
+            definition.push(i);
+        }
+    }
+
+    definition.reverse();
+    for definition_index in definition.iter() {
+        program.statements.remove(*definition_index);
+    }
+}
+
+fn is_macro_definition(node: &Statement) -> bool {
+    if let Statement::LetStatement(let_statement) = node {
+        if let Expression::MacroLiteral(_) = let_statement.value {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+fn add_macro(stmt: &Statement, env: Rc<RefCell<Environment>>) {
+    if let Statement::LetStatement(let_statement) = stmt {
+        if let Expression::MacroLiteral(macro_literal) = &let_statement.value {
+            let macro_o = Object::Macro(Macro {
+                parameters: macro_literal.parameters.clone(),
+                env: Rc::clone(&env),
+                body: *macro_literal.body.clone(),
+            });
+            env.borrow_mut().set(&let_statement.name.value, &macro_o);
+        } else {
+            unreachable!()
+        }
+    } else {
+        unreachable!()
+    }
+}
+
 mod builtin {
     use super::new_error;
     use super::{Array, Object, NULL};
@@ -614,12 +658,14 @@ mod builtin {
 
 #[cfg(test)]
 mod tests {
+    use super::super::ast::Program;
     use super::super::lexer::Lexer;
     use super::super::object::hash::Hashable;
     use super::super::object::Object;
     use super::super::parser::Parser;
-    use super::{Environment, Eval, NULL};
+    use super::{define_macros, Environment, Eval, NULL};
     use std::collections::HashMap;
+    use std::rc::Rc;
 
     #[test]
     fn test_eval_integer_expression() {
@@ -1128,6 +1174,45 @@ mod tests {
                 assert!(false, "expected Quote")
             }
         }
+    }
+
+    #[test]
+    fn test_define_macros() {
+        let input = r#"
+        let number = 1;
+        let funciton = fn(x, y) { x + y; };
+        let mymacro = macro(x, y) { x + y; };
+        "#;
+
+        let env = Environment::new();
+        let mut program = test_parse_program(input);
+
+        define_macros(&mut program, Rc::clone(&env));
+
+        assert_eq!(program.statements.len(), 2);
+
+        let borrowed_env = env.borrow();
+        assert!(borrowed_env.get("number").is_none());
+        assert!(borrowed_env.get("function").is_none());
+
+        if let Some(obj) = borrowed_env.get("mymacro") {
+            if let Object::Macro(macro_o) = obj {
+                assert_eq!(macro_o.parameters.len(), 2);
+                assert_eq!(macro_o.parameters[0].value, "x".to_string());
+                assert_eq!(macro_o.parameters[1].value, "y".to_string());
+                assert_eq!(format!("{}", macro_o.body), "(x + y)");
+            } else {
+                assert!(false, "object is not Macro")
+            }
+        } else {
+            assert!(false, "macro not in environment.")
+        }
+    }
+
+    fn test_parse_program(input: &str) -> Program {
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        p.parse_program()
     }
 
     fn test_eval(input: &str) -> Object {

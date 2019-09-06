@@ -1,5 +1,5 @@
 use self::hash::HashKey;
-use super::ast::{BlockStatement, Identifier, Expression};
+use super::ast::{BlockStatement, Expression, Identifier};
 use super::enum_with_fmt;
 use super::evaluator::Environment;
 use std::cell::RefCell;
@@ -19,6 +19,7 @@ enum_with_fmt!(
         Hash(Hash),
         String(String),
         Quote(Quote),
+        Macro(Macro),
         => // custom format
         Error(String) => "Error: {}",
         ;=> // without data and custom format
@@ -111,6 +112,28 @@ pub struct Quote {
 impl fmt::Display for Quote {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "QUOTE({})", self.node)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Macro {
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
+    pub env: Rc<RefCell<Environment>>,
+}
+
+impl fmt::Display for Macro {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "macro({}) {{{}}}", // {{ => {
+            self.parameters
+                .iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.body
+        )
     }
 }
 
