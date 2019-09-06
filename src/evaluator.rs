@@ -543,6 +543,62 @@ fn add_macro(stmt: &Statement, env: Rc<RefCell<Environment>>) {
     }
 }
 
+fn expand_macros(program: Program, env: &mut Rc<RefCell<Environment>>) -> Program {
+    if let Node::Program(p) = modify(
+        Node::Program(program),
+        Rc::new(RefCell::new(|node: Node| -> Node {
+            if let Node::Expression(Expression::CallExpression(call_expression)) = &node {
+                if let Some(macro_o) = is_macro_call(call_expression, env) {
+                    let args = quote_args(call_expression);
+                    let mut eval_env = Environment::new_enclosed(macro_o.env);
+                    for (i, param) in macro_o.parameters.iter().enumerate() {
+                        eval_env.borrow_mut().set(&param.value, &args[i]);
+                    }
+                    let evaluated = macro_o.body.eval(&mut eval_env);
+                    if let Object::Quote(quote) = evaluated {
+                        Node::Expression(quote.node)
+                    } else {
+                        panic!("we only support returning AST-nodes from macros");
+                    }
+                } else {
+                    node
+                }
+            } else {
+                node
+            }
+        })),
+    ) {
+        p
+    } else {
+        unreachable!()
+    }
+}
+
+fn is_macro_call(exp: &CallExpression, env: &Rc<RefCell<Environment>>) -> Option<Macro> {
+    if let Expression::Identifier(identifier) = &*exp.function {
+        if let Some(obj) = env.borrow().get(&identifier.value) {
+            if let Object::Macro(macro_o) = obj {
+                Some(macro_o)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+fn quote_args(exp: &CallExpression) -> Vec<Object> {
+    let mut args = vec![];
+
+    for a in &exp.arguments {
+        args.push(Object::Quote(Quote { node: a.clone() }));
+    }
+    args
+}
+
 mod builtin {
     use super::new_error;
     use super::{Array, Object, NULL};
@@ -663,7 +719,7 @@ mod tests {
     use super::super::object::hash::Hashable;
     use super::super::object::Object;
     use super::super::parser::Parser;
-    use super::{define_macros, Environment, Eval, NULL};
+    use super::{define_macros, expand_macros, Environment, Eval, NULL};
     use std::collections::HashMap;
     use std::rc::Rc;
 
@@ -1206,6 +1262,50 @@ mod tests {
             }
         } else {
             assert!(false, "macro not in environment.")
+        }
+    }
+
+    #[test]
+    fn test_expand_macros() {
+        let tests = [
+            (
+                r#"
+            let infixExpression = macro() { quote(1 + 2); };
+            infixExpression();
+            "#,
+                "(1 + 2)",
+            ),
+            (
+                r#"
+            let reverse = macro(a, b) { quote(unquote(b) - unquote(a)); };
+            reverse(2 + 2, 10 - 5);
+            "#,
+                "(10 - 5) - (2 + 2)",
+            ),
+            (
+                r#"
+            let unless = macro(condition, consequence, alternative) {
+                quote(if (!(unquote(condition))){
+                    unquote(consequence);
+                } else {
+                    unquote(alternative);
+                })
+            };
+            unless(10 > 5, puts("not greater"), puts("greater"));
+            "#,
+                r#"if (!(10 > 5)) { puts("not greater") } else { puts("greater") }"#,
+            ),
+        ];
+
+        for (input, expected_str) in tests.iter() {
+            let expected = test_parse_program(expected_str);
+            let mut program = test_parse_program(input);
+
+            let env = Environment::new();
+            define_macros(&mut program, Rc::clone(&env));
+            let expanded = expand_macros(program, &mut Rc::clone(&env));
+
+            assert_eq!(format!("{}", expanded), format!("{}", expected));
         }
     }
 
