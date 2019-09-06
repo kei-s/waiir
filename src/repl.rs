@@ -1,11 +1,13 @@
-use super::evaluator::{Environment, Eval};
+use super::evaluator::{define_macros, expand_macros, Environment, Eval};
 use super::{lexer, parser};
 use std::io;
 use std::io::prelude::Write;
+use std::rc::Rc;
 
 pub fn start() {
     const PROMPT: &str = ">> ";
     let mut env = Environment::new();
+    let macro_env = Environment::new();
     loop {
         print!("{}", PROMPT);
         io::stdout().flush().unwrap();
@@ -14,7 +16,7 @@ pub fn start() {
         let l = lexer::Lexer::new(&input);
         let mut p = parser::Parser::new(l);
 
-        let program = p.parse_program();
+        let mut program = p.parse_program();
 
         let errors = p.errors();
         if errors.len() != 0 {
@@ -22,7 +24,10 @@ pub fn start() {
             continue;
         }
 
-        let evaluated = program.eval(&mut env);
+        define_macros(&mut program, Rc::clone(&macro_env));
+        let expanded = expand_macros(program, &mut Rc::clone(&macro_env));
+
+        let evaluated = expanded.eval(&mut env);
 
         println!("{}", evaluated);
     }

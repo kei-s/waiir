@@ -499,7 +499,7 @@ fn is_unquote_call(node: &Node) -> bool {
     }
 }
 
-fn define_macros(program: &mut Program, env: Rc<RefCell<Environment>>) {
+pub fn define_macros(program: &mut Program, env: Rc<RefCell<Environment>>) {
     let mut definition = vec![];
     for (i, statement) in program.statements.iter().enumerate() {
         if is_macro_definition(statement) {
@@ -543,7 +543,7 @@ fn add_macro(stmt: &Statement, env: Rc<RefCell<Environment>>) {
     }
 }
 
-fn expand_macros(program: Program, env: &mut Rc<RefCell<Environment>>) -> Program {
+pub fn expand_macros(program: Program, env: &mut Rc<RefCell<Environment>>) -> Program {
     if let Node::Program(p) = modify(
         Node::Program(program),
         Rc::new(RefCell::new(|node: Node| -> Node {
