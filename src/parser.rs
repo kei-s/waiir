@@ -300,7 +300,7 @@ impl Parser {
 
         self.next_token();
 
-        while !self.cur_token_is(&TokenType::RBrace) && !self._cur_token.is_none() {
+        while !self.cur_token_is(&TokenType::RBrace) && self._cur_token.is_some() {
             statements.push(self.parse_statement()?);
             self.next_token();
         }

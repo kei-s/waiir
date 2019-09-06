@@ -213,10 +213,10 @@ fn eval_infix_expression(operator: &str, left: Object, right: Object) -> Object 
             left, operator, right
         ));
     }
-    return new_error(format!(
+    new_error(format!(
         "unknown operator: {:?} {} {:?}",
         left, operator, right
-    ));
+    ))
 }
 
 fn eval_integer_infix_expression(operator: &str, left_val: i64, right_val: i64) -> Object {
@@ -242,13 +242,13 @@ impl_eval!(IfExpression => (self, env) {
         return condition;
     }
 
-    return if is_truthy(condition) {
+    if is_truthy(condition) {
         self.consequence.eval(env)
     } else if let Some(alternative) = &self.alternative {
         alternative.eval(env)
     } else {
         NULL
-    };
+    }
 });
 
 impl_eval!(BlockStatement => (self, env) {
@@ -384,7 +384,7 @@ fn eval_index_expression(left: Object, index: Object) -> Object {
     new_error(format!("index operator not supported: {:?}", left))
 }
 
-fn eval_array_index_expression(elements: &Vec<Object>, idx: i64) -> Object {
+fn eval_array_index_expression(elements: &[Object], idx: i64) -> Object {
     let max = elements.len() - 1;
 
     if idx < 0 || idx as usize > max {
@@ -422,9 +422,9 @@ fn eval_hash_index_expression(hash_object: &Hash, index: Object) -> Object {
     };
 
     if let Some(pair) = hash_object.pairs.get(&key) {
-        return pair.value.clone();
+        pair.value.clone()
     } else {
-        return NULL;
+        NULL
     }
 }
 
@@ -469,7 +469,7 @@ fn eval_unquote_calls(quoted: &Expression, env: &mut Rc<RefCell<Environment>>) -
                 let unquoted = call.arguments[0].eval(env);
                 Node::Expression(convert_object_to_ast_node(unquoted))
             } else {
-                return node;
+                node
             }
         })),
     ) {

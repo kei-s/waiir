@@ -23,7 +23,7 @@ impl Lexer {
                 '=' => {
                     if self.peek_char().is_some() && self.peek_char().unwrap() == &'=' {
                         self.read_char();
-                        let literal: String = [ch, self.ch.unwrap()].into_iter().collect();
+                        let literal: String = [ch, self.ch.unwrap()].iter().collect();
                         Token {
                             t: TokenType::Eq,
                             literal,
@@ -46,7 +46,7 @@ impl Lexer {
                 '!' => {
                     if self.peek_char().is_some() && self.peek_char().unwrap() == &'=' {
                         self.read_char();
-                        let literal: String = [ch, self.ch.unwrap()].into_iter().collect();
+                        let literal: String = [ch, self.ch.unwrap()].iter().collect();
                         Token {
                             t: TokenType::NotEq,
                             literal,
@@ -139,47 +139,39 @@ impl Lexer {
 
     fn read_identifier(&mut self) -> Token {
         let mut literal = String::new();
-        loop {
-            if let Some(ch) = self.ch {
-                match ch {
-                    'a'..='z' | 'A'..='Z' | '_' => {
-                        literal.push(ch);
-                        self.read_char();
-                    }
-                    _ => {
-                        break;
-                    }
+        while let Some(ch) = self.ch {
+            match ch {
+                'a'..='z' | 'A'..='Z' | '_' => {
+                    literal.push(ch);
+                    self.read_char();
                 }
-            } else {
-                break;
+                _ => {
+                    break;
+                }
             }
         }
         Token {
             t: lookup_ident(literal.as_str()),
-            literal: literal,
+            literal,
         }
     }
 
     fn read_number(&mut self) -> Token {
         let mut literal = String::new();
-        loop {
-            if let Some(ch) = self.ch {
-                match ch {
-                    '0'..='9' => {
-                        literal.push(ch);
-                        self.read_char();
-                    }
-                    _ => {
-                        break;
-                    }
-                };
-            } else {
-                break;
-            }
+        while let Some(ch) = self.ch {
+            match ch {
+                '0'..='9' => {
+                    literal.push(ch);
+                    self.read_char();
+                }
+                _ => {
+                    break;
+                }
+            };
         }
         Token {
             t: TokenType::Int,
-            literal: literal,
+            literal,
         }
     }
     fn read_string(&mut self) -> String {
@@ -195,17 +187,13 @@ impl Lexer {
     }
 
     fn skip_whitespace(&mut self) {
-        loop {
-            if let Some(ch) = self.ch {
-                match ch {
-                    ' ' | '\t' | '\n' | '\r' => self.read_char(),
-                    _ => {
-                        break;
-                    }
-                };
-            } else {
-                break;
-            }
+        while let Some(ch) = self.ch {
+            match ch {
+                ' ' | '\t' | '\n' | '\r' => self.read_char(),
+                _ => {
+                    break;
+                }
+            };
         }
     }
 }

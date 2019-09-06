@@ -19,7 +19,7 @@ pub fn start() {
         let mut program = p.parse_program();
 
         let errors = p.errors();
-        if errors.len() != 0 {
+        if !errors.is_empty() {
             print_parser_errors(errors);
             continue;
         }
